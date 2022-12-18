@@ -128,17 +128,15 @@ class QKVAttention(nn.Module):
         self.w_v = randw(nb_heads, dim_v, dim_in)
         self.w_o = randw(dim_v * nb_heads, dim_in)
 
-    def forward(self, bs_q, x_kv=None):
+    def forward(self, bs_q):
         x_q = bs_q.x
-        if x_kv is None:
-            x_kv = x_q
 
         if bs_q.first == 0:
             self.cache_k = x_q.new_zeros(
-                x_q.size(0), self.w_k.size(0), x_kv.size(1), self.w_k.size(1)
+                x_q.size(0), self.w_k.size(0), x_q.size(1), self.w_k.size(1)
             )
             self.cache_v = x_q.new_zeros(
-                x_q.size(0), self.w_v.size(0), x_kv.size(1), self.w_v.size(1)
+                x_q.size(0), self.w_v.size(0), x_q.size(1), self.w_v.size(1)
             )
             self.cache_y = x_q.new_zeros(x_q.size(0), x_q.size(1), self.w_o.size(1))
 
@@ -146,10 +144,10 @@ class QKVAttention(nn.Module):
             "ntc,hdc->nhtd", x_q[:, bs_q.first : bs_q.first + bs_q.nb], self.w_q
         )
         self.cache_k[:, :, bs_q.first : bs_q.first + bs_q.nb] = torch.einsum(
-            "ntc,hdc->nhtd", x_kv[:, bs_q.first : bs_q.first + bs_q.nb], self.w_k
+            "ntc,hdc->nhtd", x_q[:, bs_q.first : bs_q.first + bs_q.nb], self.w_k
         )
         self.cache_v[:, :, bs_q.first : bs_q.first + bs_q.nb] = torch.einsum(
-            "ntc,hdc->nhtd", x_kv[:, bs_q.first : bs_q.first + bs_q.nb], self.w_v
+            "ntc,hdc->nhtd", x_q[:, bs_q.first : bs_q.first + bs_q.nb], self.w_v
         )
 
         a = torch.einsum(
@@ -160,7 +158,7 @@ class QKVAttention(nn.Module):
             if bs_q.first == 0:
                 self.cache_attzero = (
                     torch.arange(x_q.size(1), device=q.device)[None, None, :, None]
-                    < torch.arange(x_kv.size(1), device=q.device)[None, None, None, :]
+                    < torch.arange(x_q.size(1), device=q.device)[None, None, None, :]
                 )
             a = a.masked_fill(
                 self.cache_attzero[
