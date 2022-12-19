@@ -20,7 +20,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 ######################################################################
 
 parser = argparse.ArgumentParser(
-    description="An implementation of GPT with cache to solve a toy geometric reasonning task."
+    description="An implementation of GPT with cache to solve a toy geometric reasoning task."
 )
 
 parser.add_argument("--log_filename", type=str, default="train.log")
@@ -421,9 +421,7 @@ class TaskPicoCLVR(Task):
             f"property_{prefix}miss {n_epoch} {100*nb_missing_properties/nb_requested_properties:.02f}%"
         )
 
-        img = picoclvr.descr2img(
-            result_descr, [0], height=self.height, width=self.width
-        )
+        img = picoclvr.descr2img(result_descr, height=self.height, width=self.width)
 
         if img.dim() == 5:
             if img.size(1) == 1:
