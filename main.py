@@ -94,7 +94,7 @@ except FileExistsError:
         print(f"result directory {args.result_dir} already exists")
         exit(1)
 
-log_file = open(os.path.join(args.result_dir, args.log_filename), "w")
+log_file = open(os.path.join(args.result_dir, args.log_filename), "a")
 
 if args.seed >= 0:
     # torch.backends.cudnn.deterministic = True
