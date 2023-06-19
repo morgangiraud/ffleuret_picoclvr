@@ -526,7 +526,7 @@ class TaskMaze(Task):
         self.width = width
         self.device = device
 
-        train_mazes, train_paths, train_policies = maze.create_maze_data(
+        train_mazes, train_paths, _ = maze.create_maze_data(
             nb_train_samples,
             height=height,
             width=width,
@@ -534,9 +534,8 @@ class TaskMaze(Task):
             progress_bar=lambda x: tqdm.tqdm(x, dynamic_ncols=True, desc=f"data-train"),
         )
         self.train_input = self.map2seq(train_mazes.to(device), train_paths.to(device))
-        self.train_policies = train_policies.flatten(-2).to(device)
 
-        test_mazes, test_paths, test_policies = maze.create_maze_data(
+        test_mazes, test_paths, _ = maze.create_maze_data(
             nb_test_samples,
             height=height,
             width=width,
@@ -544,9 +543,8 @@ class TaskMaze(Task):
             progress_bar=lambda x: tqdm.tqdm(x, dynamic_ncols=True, desc=f"data-test"),
         )
         self.test_input = self.map2seq(test_mazes.to(device), test_paths.to(device))
-        self.test_policies = test_policies.flatten(-2).to(device)
 
-        self.nb_codes = self.train_input.max() + 1
+        self.nb_codes = max(self.train_input.max(), self.test_input.max()) + 1
 
     def batches(self, split="train", nb_to_use=-1, desc=None):
         assert split in {"train", "test"}
@@ -557,26 +555,6 @@ class TaskMaze(Task):
             desc = f"epoch-{split}"
         for batch in tqdm.tqdm(
             input.split(self.batch_size), dynamic_ncols=True, desc=desc
-        ):
-            yield batch
-
-    def policy_batches(self, split="train", nb_to_use=-1, desc=None):
-        assert split in {"train", "test"}
-        input = self.train_input if split == "train" else self.test_input
-        policies = self.train_policies if split == "train" else self.test_policies
-        input = input[:, : self.height * self.width]
-        policies = policies * (input != maze.v_wall)[:, None]
-
-        if nb_to_use > 0:
-            input = input[:nb_to_use]
-            policies = policies[:nb_to_use]
-
-        if desc is None:
-            desc = f"epoch-{split}"
-        for batch in tqdm.tqdm(
-            zip(input.split(self.batch_size), policies.split(self.batch_size)),
-            dynamic_ncols=True,
-            desc=desc,
         ):
             yield batch
 
@@ -641,6 +619,42 @@ class TaskMaze(Task):
             log_string(f"wrote {filename}")
 
             model.train(t)
+
+
+######################################################################
+
+class TaskSnake(Task):
+    def __init__(
+        self,
+        nb_train_samples,
+        nb_test_samples,
+        batch_size,
+        height,
+        width,
+        nb_walls,
+        device=torch.device("cpu"),
+    ):
+        self.batch_size = batch_size
+        self.height = height
+        self.width = width
+        self.device = device
+
+        # self.train_input = 
+        # self.test_input = 
+
+        self.nb_codes = max(self.train_input.max(), self.train_input.max()) + 1
+
+    def batches(self, split="train", nb_to_use=-1, desc=None):
+        assert split in {"train", "test"}
+        input = self.train_input if split == "train" else self.test_input
+        if nb_to_use > 0:
+            input = input[:nb_to_use]
+        if desc is None:
+            desc = f"epoch-{split}"
+        for batch in tqdm.tqdm(
+            input.split(self.batch_size), dynamic_ncols=True, desc=desc
+        ):
+            yield batch
 
 
 ######################################################################
