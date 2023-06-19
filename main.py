@@ -30,6 +30,8 @@ parser = argparse.ArgumentParser(
     description="An implementation of GPT with cache to solve a toy geometric reasoning task."
 )
 
+parser.add_argument("--task", type=str, default="picoclvr")
+
 parser.add_argument("--log_filename", type=str, default="train.log")
 
 parser.add_argument("--result_dir", type=str, default="results_default")
@@ -73,19 +75,28 @@ parser.add_argument("--checkpoint_name", type=str, default="checkpoint.pth")
 ##############################
 # picoclvr options
 
-parser.add_argument("--nb_colors", type=int, default=5)
+parser.add_argument("--picoclvr_nb_colors", type=int, default=5)
 
-parser.add_argument("--height", type=int, default=12)
+parser.add_argument("--picoclvr_height", type=int, default=12)
 
-parser.add_argument("--width", type=int, default=16)
+parser.add_argument("--picoclvr_width", type=int, default=16)
 
-parser.add_argument("--prune_properties", type=str, default="none")
+parser.add_argument("--picocvlr_prune_properties", type=str, default="none")
+
+##############################
+# Maze options
+
+parser.add_argument("--maze_height", type=int, default=13)
+
+parser.add_argument("--maze_width", type=int, default=21)
+
+parser.add_argument("--maze_nb_walls", type=int, default=15)
 
 ######################################################################
 
 args = parser.parse_args()
 
-assert args.prune_properties in {"none", "train+eval", "eval"}
+assert args.picocvlr_prune_properties in {"none", "train+eval", "eval"}
 
 try:
     os.mkdir(args.result_dir)
@@ -311,8 +322,12 @@ class TaskPicoCLVR(Task):
             "rng_state": list(torch.get_rng_state()),
         }
 
-        log_string(f"generating {nb_train_samples+nb_test_samples} samples (can take some time)")
-        self.train_descr = generate_descr(nb_train_samples, "train", pruner=self.pruner_train)
+        log_string(
+            f"generating {nb_train_samples+nb_test_samples} samples (can take some time)"
+        )
+        self.train_descr = generate_descr(
+            nb_train_samples, "train", pruner=self.pruner_train
+        )
         self.test_descr = generate_descr(nb_test_samples, "test", pruner=None)
 
         # Build the tokenizer
@@ -445,28 +460,199 @@ class TaskPicoCLVR(Task):
 
 ######################################################################
 
-log_string(f"device {device}")
+import maze
 
 
-def pruner_horizontal_green(p):
+class TaskMaze(Task):
+    def map2seq(self, *m):
+        return torch.cat([x.flatten(1) for x in m], 1)
+
+    def seq2map(self, s):
+        s = s.reshape(s.size(0), -1, self.height, self.width)
+        return (s[:, k] for k in range(s.size(1)))
+
+    def __init__(
+        self,
+        nb_train_samples,
+        nb_test_samples,
+        batch_size,
+        height,
+        width,
+        nb_walls,
+        device=torch.device("cpu"),
+    ):
+        self.batch_size = batch_size
+        self.height = height
+        self.width = width
+        self.device = device
+
+        train_mazes, train_paths, train_policies = maze.create_maze_data(
+            nb_train_samples,
+            height=height,
+            width=width,
+            nb_walls=nb_walls,
+            progress_bar=lambda x: tqdm.tqdm(x, dynamic_ncols=True, desc=f"data-train"),
+        )
+        self.train_input = self.map2seq(train_mazes.to(device), train_paths.to(device))
+        self.train_policies = train_policies.flatten(-2).to(device)
+
+        test_mazes, test_paths, test_policies = maze.create_maze_data(
+            nb_test_samples,
+            height=height,
+            width=width,
+            nb_walls=nb_walls,
+            progress_bar=lambda x: tqdm.tqdm(x, dynamic_ncols=True, desc=f"data-test"),
+        )
+        self.test_input = self.map2seq(test_mazes.to(device), test_paths.to(device))
+        self.test_policies = test_policies.flatten(-2).to(device)
+
+        self.nb_codes = self.train_input.max() + 1
+
+    def batches(self, split="train", nb_to_use=-1, desc=None):
+        assert split in {"train", "test"}
+        input = self.train_input if split == "train" else self.test_input
+        if nb_to_use > 0:
+            input = input[:nb_to_use]
+        if desc is None:
+            desc = f"epoch-{split}"
+        for batch in tqdm.tqdm(
+            input.split(self.batch_size), dynamic_ncols=True, desc=desc
+        ):
+            yield batch
+
+    def policy_batches(self, split="train", nb_to_use=-1, desc=None):
+        assert split in {"train", "test"}
+        input = self.train_input if split == "train" else self.test_input
+        policies = self.train_policies if split == "train" else self.test_policies
+        input = input[:, : self.height * self.width]
+        policies = policies * (input != maze.v_wall)[:, None]
+
+        if nb_to_use > 0:
+            input = input[:nb_to_use]
+            policies = policies[:nb_to_use]
+
+        if desc is None:
+            desc = f"epoch-{split}"
+        for batch in tqdm.tqdm(
+            zip(input.split(self.batch_size), policies.split(self.batch_size)),
+            dynamic_ncols=True,
+            desc=desc,
+        ):
+            yield batch
+
+    def vocabulary_size(self):
+        return self.nb_codes
+
+    def compute_error(self, model, split="train", nb_to_use=-1):
+        nb_total, nb_correct = 0, 0
+        for input in task.batches(split, nb_to_use):
+            result = input.clone()
+            ar_mask = result.new_zeros(result.size())
+            ar_mask[:, self.height * self.width :] = 1
+            result *= 1 - ar_mask
+            masked_inplace_autoregression(
+                model, self.batch_size, result, ar_mask, device=self.device
+            )
+            mazes, paths = self.seq2map(result)
+            nb_correct += maze.path_correctness(mazes, paths).long().sum()
+            nb_total += mazes.size(0)
+
+        return nb_total, nb_correct
+
+    def produce_results(self, n_epoch, model):
+        with torch.autograd.no_grad():
+            t = model.training
+            model.eval()
+
+            train_nb_total, train_nb_correct = self.compute_error(
+                model, "train", nb_to_use=1000
+            )
+            log_string(
+                f"accuracy_train nb_total {train_nb_total} nb_correct {train_nb_correct} accuracy {(100.0*train_nb_correct)/train_nb_total:.02f}%"
+            )
+
+            test_nb_total, test_nb_correct = self.compute_error(
+                model, "test", nb_to_use=1000
+            )
+            log_string(
+                f"accuracy_test nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%"
+            )
+
+            input = self.test_input[:48]
+            result = input.clone()
+            ar_mask = result.new_zeros(result.size())
+            ar_mask[:, self.height * self.width :] = 1
+            result *= 1 - ar_mask
+            masked_inplace_autoregression(
+                model, self.batch_size, result, ar_mask, device=self.device
+            )
+
+            mazes, paths = self.seq2map(input)
+            _, predicted_paths = self.seq2map(result)
+            filename = f"result_{n_epoch:04d}.png"
+            maze.save_image(
+                os.path.join(args.result_dir, filename),
+                mazes=mazes,
+                target_paths=paths,
+                predicted_paths=predicted_paths,
+                path_correct=maze.path_correctness(mazes, predicted_paths),
+            )
+            log_string(f"wrote {filename}")
+
+            model.train(t)
+
+
+######################################################################
+
+
+def picoclvr_pruner_horizontal_green(p):
     return not ("green" in p and ("left" in p or "right" in p))
 
 
-task = TaskPicoCLVR(
-    nb_train_samples=args.nb_train_samples,
-    nb_test_samples=args.nb_test_samples,
-    batch_size=args.batch_size,
-    height=args.height,
-    width=args.width,
-    nb_colors=args.nb_colors,
-    device=device,
-    pruner_train=pruner_horizontal_green
-    if args.prune_properties in {"train+eval"}
-    else None,
-    pruner_eval=(lambda p: not pruner_horizontal_green(p))
-    if args.prune_properties in {"train+eval", "eval"}
-    else None,
+picoclvr_pruner_train = (
+    picoclvr_pruner_horizontal_green
+    if args.picocvlr_prune_properties in {"train+eval"}
+    else None
 )
+
+picoclvr_pruner_eval = (
+    (lambda p: not picoclvr_pruner_horizontal_green(p))
+    if args.picocvlr_prune_properties in {"train+eval", "eval"}
+    else None
+)
+
+######################################################################
+
+if args.task == "picoclvr":
+    task = TaskPicoCLVR(
+        nb_train_samples=args.nb_train_samples,
+        nb_test_samples=args.nb_test_samples,
+        batch_size=args.batch_size,
+        height=args.picoclvr_height,
+        width=args.picoclvr_width,
+        nb_colors=args.picoclvr_nb_colors,
+        device=device,
+        pruner_train=picoclvr_pruner_train,
+        pruner_eval=picoclvr_pruner_eval,
+    )
+
+elif args.task == "maze":
+    task = TaskMaze(
+        nb_train_samples=args.nb_train_samples,
+        nb_test_samples=args.nb_test_samples,
+        batch_size=args.batch_size,
+        height=args.maze_height,
+        width=args.maze_width,
+        nb_walls=args.maze_nb_walls,
+        device=device,
+    )
+
+else:
+    raise ValueError(f"Unknown task {args.task}")
+
+######################################################################
+
+log_string(f"device {device}")
 
 vocabulary_size = task.vocabulary_size()
 
