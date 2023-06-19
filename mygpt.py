@@ -197,7 +197,6 @@ class MyGPT(nn.Module):
         dropout=0.0,
         len_max=1e5,
     ):
-
         super().__init__()
 
         assert dim_model % nb_heads == 0
@@ -258,7 +257,6 @@ class MyGPT(nn.Module):
 ######################################################################
 
 if __name__ == "__main__":
-
     print("Basic check.")
 
     vocabulary_size = 10

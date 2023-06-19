@@ -38,17 +38,17 @@ parser.add_argument("--seed", type=int, default=0)
 
 parser.add_argument("--nb_epochs", type=int, default=25)
 
-parser.add_argument("--batch_size", type=int, default=100)
+parser.add_argument("--batch_size", type=int, default=25)
 
-parser.add_argument("--data_size", type=int, default=-1)
+parser.add_argument("--nb_train_samples", type=int, default=250000)
+
+parser.add_argument("--nb_test_samples", type=int, default=10000)
 
 parser.add_argument("--optim", type=str, default="adam")
 
-parser.add_argument("--learning_rate", type=float, default=1e-3)
+parser.add_argument("--learning_rate", type=float, default=1e-4)
 
-parser.add_argument(
-    "--learning_rate_schedule", type=str, default="10: 2e-4,20: 4e-5,30: 8e-6"
-)
+parser.add_argument("--learning_rate_schedule", type=str, default="10: 2e-5,30: 4e-6")
 
 parser.add_argument("--dim_model", type=int, default=512)
 
@@ -127,7 +127,6 @@ for n in vars(args):
 def masked_inplace_autoregression(
     model, batch_size, input, ar_mask, forbidden_tokens=None, device=torch.device("cpu")
 ):
-
     for input, ar_mask in zip(input.split(batch_size), ar_mask.split(batch_size)):
         i = (ar_mask.sum(0) > 0).nonzero()
         if i.min() > 0:
@@ -167,7 +166,6 @@ import picoclvr
 
 
 class TaskPicoCLVR(Task):
-
     # Make a tensor from a list of strings
     def tensorize(self, descr):
         token_descr = [s.strip().split(" ") for s in descr]
@@ -277,6 +275,8 @@ class TaskPicoCLVR(Task):
 
     def __init__(
         self,
+        nb_train_samples,
+        nb_test_samples,
         batch_size,
         height,
         width,
@@ -298,12 +298,12 @@ class TaskPicoCLVR(Task):
         self.width = width
         self.batch_size = batch_size
         self.device = device
-        nb = args.data_size if args.data_size > 0 else 250000
         self.pruner_train = pruner_train
         self.pruner_eval = pruner_eval
 
         param = {
-            "nb": nb,
+            "nb_train_samples": nb_train_samples,
+            "nb_test_samples": nb_test_samples,
             "height": height,
             "width": width,
             "nb_colors": nb_colors,
@@ -311,11 +311,9 @@ class TaskPicoCLVR(Task):
             "rng_state": list(torch.get_rng_state()),
         }
 
-        log_string(f"generating {nb} samples (can take some time)")
-        self.train_descr = generate_descr(
-            (nb * 4) // 5, "train", pruner=self.pruner_train
-        )
-        self.test_descr = generate_descr((nb * 1) // 5, "test", pruner=None)
+        log_string(f"generating {nb_train_samples+nb_test_samples} samples (can take some time)")
+        self.train_descr = generate_descr(nb_train_samples, "train", pruner=self.pruner_train)
+        self.test_descr = generate_descr(nb_test_samples, "test", pruner=None)
 
         # Build the tokenizer
         tokens = {"<nul>", "<img>"}
@@ -346,7 +344,6 @@ class TaskPicoCLVR(Task):
         return len(self.token2id)
 
     def compute_missing_properties(self, n_epoch, model, pruner=None):
-
         acc_nb_requested_properties = []
         acc_nb_missing_properties = []
         acc_nb_results = 0
@@ -385,7 +382,6 @@ class TaskPicoCLVR(Task):
     ######################################################################
 
     def produce_results(self, n_epoch, model):
-
         self.compute_missing_properties(n_epoch, model)
 
         if self.pruner_eval is not None:
@@ -457,6 +453,8 @@ def pruner_horizontal_green(p):
 
 
 task = TaskPicoCLVR(
+    nb_train_samples=args.nb_train_samples,
+    nb_test_samples=args.nb_test_samples,
     batch_size=args.batch_size,
     height=args.height,
     width=args.width,
@@ -561,7 +559,6 @@ if nb_epochs_finished >= nb_epochs:
     task.produce_results(nb_epochs_finished, model)
 
 for n_epoch in range(nb_epochs_finished, nb_epochs):
-
     learning_rate = learning_rate_schedule[n_epoch]
 
     log_string(f"learning_rate {learning_rate}")
@@ -592,7 +589,6 @@ for n_epoch in range(nb_epochs_finished, nb_epochs):
         optimizer.step()
 
     with torch.autograd.no_grad():
-
         model.eval()
 
         nb_test_samples, acc_test_loss = 0, 0.0

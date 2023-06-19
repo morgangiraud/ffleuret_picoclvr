@@ -45,7 +45,6 @@ sys.excepthook = exception_hook
 ######################################################################
 
 if __name__ == "__main__":
-
     import torch
 
     def dummy(a, b):
