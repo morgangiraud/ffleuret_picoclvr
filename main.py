@@ -451,9 +451,49 @@ class TaskPicoCLVR(Task):
                     0,
                 )
 
-        image_name = os.path.join(args.result_dir, f"result_{n_epoch:04d}.png")
+        image_name = os.path.join(args.result_dir, f"picoclvr_result_{n_epoch:04d}.png")
         torchvision.utils.save_image(
             img / 255.0, image_name, nrow=nb_per_primer, padding=1, pad_value=1.0
+        )
+        log_string(f"wrote {image_name}")
+
+
+######################################################################
+
+
+class TaskMNIST(Task):
+    def __init__(self, batch_size, device=torch.device("cpu")):
+        self.device = device
+        self.batch_size = batch_size
+
+    def batches(self, split="train"):
+        assert split in {"train", "test"}
+        data_set = torchvision.datasets.MNIST(
+            root="./data", train=(split == "train"), download=True
+        )
+        data_input = data_set.data.view(-1, 28 * 28).long()
+        if args.nb_train_samples is not None:
+            data_input = data_input[: args.nb_train_samples]
+        for batch in tqdm.tqdm(
+            data_input.split(self.batch_size), desc=f"epoch-{split}"
+        ):
+            yield batch
+
+    def vocabulary_size(self):
+        return 256
+
+    def produce_results(self, n_epoch, model):
+        results = torch.empty(64, 28 * 28, device=self.device, dtype=torch.int64)
+        ar_mask = torch.full_like(results, 1)
+        masked_inplace_autoregression(
+            model, self.batch_size, results, ar_mask, device=self.device
+        )
+        image_name = os.path.join(args.result_dir, f"result_mnist_{n_epoch:04d}.png")
+        torchvision.utils.save_image(
+            1 - results.reshape(-1, 1, 28, 28) / 255.0,
+            image_name,
+            nrow=16,
+            pad_value=0.8,
         )
         log_string(f"wrote {image_name}")
 
@@ -589,9 +629,10 @@ class TaskMaze(Task):
 
             mazes, paths = self.seq2map(input)
             _, predicted_paths = self.seq2map(result)
-            filename = f"result_{n_epoch:04d}.png"
+
+            filename = os.path.join(args.result_dir, f"result_{n_epoch:04d}.png")
             maze.save_image(
-                os.path.join(args.result_dir, filename),
+                filename,
                 mazes=mazes,
                 target_paths=paths,
                 predicted_paths=predicted_paths,
@@ -634,6 +675,12 @@ if args.task == "picoclvr":
         device=device,
         pruner_train=picoclvr_pruner_train,
         pruner_eval=picoclvr_pruner_eval,
+    )
+
+elif args.task == "mnist":
+    task = TaskMNIST(
+        batch_size=args.batch_size,
+        device=device,
     )
 
 elif args.task == "maze":
