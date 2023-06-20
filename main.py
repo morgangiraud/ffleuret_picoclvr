@@ -92,6 +92,17 @@ parser.add_argument("--maze_width", type=int, default=21)
 
 parser.add_argument("--maze_nb_walls", type=int, default=15)
 
+##############################
+# Snake options
+
+parser.add_argument("--snake_height", type=int, default=6)
+
+parser.add_argument("--snake_width", type=int, default=8)
+
+parser.add_argument("--snake_nb_colors", type=int, default=3)
+
+parser.add_argument("--snake_length", type=int, default=100)
+
 ######################################################################
 
 args = parser.parse_args()
@@ -627,7 +638,7 @@ class TaskMaze(Task):
 def generate_snake_sequences(
     nb, height, width, nb_colors, length, device=torch.device("cpu")
 ):
-    world = torch.randint(nb_colors, (nb, height, width), device=device)
+    worlds = torch.randint(nb_colors, (nb, height, width), device=device)
     # nb x 2
     snake_position = torch.cat(
         (
@@ -636,17 +647,17 @@ def generate_snake_sequences(
         ),
         1,
     )
-    snake_direction = torch.randint(4, (nb, 1), device=device)
-    result = torch.empty(nb, 2*length, device=device, dtype=torch.int64)
+    snake_direction = torch.randint(4, (nb,), device=device)
+    sequences = torch.empty(nb, 2 * length, device=device, dtype=torch.int64)
     count = torch.arange(nb, device=device)  # [:,None]
 
     for l in range(length):
         # nb x 3
         snake_next_direction = torch.cat(
             (
-                (snake_direction - 1) % 4,
-                snake_direction,
-                (snake_direction + 1) % 4,
+                (snake_direction[:, None] - 1) % 4,
+                snake_direction[:, None],
+                (snake_direction[:, None] + 1) % 4,
             ),
             1,
         )
@@ -668,25 +679,29 @@ def generate_snake_sequences(
                 snake_next_position[:, :, 1] >= 0, snake_next_position[:, :, 1] < width
             ),
         ).float()
-        val = torch.rand_like(val) * val * torch.tensor([[1.,4.,1.]], device=device)
+        val = (
+            torch.rand_like(val) * val * torch.tensor([[1.0, 4.0, 1.0]], device=device)
+        )
 
         # nb
         i = torch.arange(val.size(0), device=device)
         j = val.argmax(1)
+        snake_direction = snake_next_direction[i, j]
 
-        # nb x 1
-        snake_direction = snake_next_direction[i[:, None], j[:, None]]
-
-        result[:, 2*l] = world[count, snake_position[:, 0], snake_position[:, 1]]
-        result[:, 2*l+1] = snake_direction[:,0]
+        sequences[:, 2 * l] = worlds[count, snake_position[:, 0], snake_position[:, 1]]
+        sequences[:, 2 * l + 1] = snake_direction
 
         # nb x 2
-        snake_position = snake_next_position[i[:, None], j[:, None]].squeeze(1)
+        snake_position = snake_next_position[i, j]
 
-    return result
+    return sequences, worlds
 
-generate_snake_sequences(nb=2, height=4, width=5, nb_colors=3, length=10)
-exit(0)
+    # print(snake_position)
+
+
+# generate_snake_sequences(nb=1, height=4, width=6, nb_colors=3, length=20)
+# exit(0)
+
 
 class TaskSnake(Task):
     def __init__(
@@ -705,10 +720,10 @@ class TaskSnake(Task):
         self.width = width
         self.device = device
 
-        self.train_input = generate_snake_sequences(
+        self.train_input, self.train_worlds = generate_snake_sequences(
             nb_train_samples, height, width, nb_colors, length, self.device
         )
-        self.test_input = generate_snake_sequences(
+        self.test_input, self.test_worlds = generate_snake_sequences(
             nb_test_samples, height, width, nb_colors, length, self.device
         )
 
@@ -786,10 +801,10 @@ elif args.task == "snake":
         nb_train_samples=args.nb_train_samples,
         nb_test_samples=args.nb_test_samples,
         batch_size=args.batch_size,
-        height=6,
-        width=8,
-        nb_colors=5,
-        length=100,
+        height=args.snake_height,
+        width=args.snake_width,
+        nb_colors=args.snake_nb_colors,
+        length=args.snake_length,
         device=device,
     )
 
