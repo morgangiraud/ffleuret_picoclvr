@@ -172,7 +172,12 @@ for n in vars(args):
 def masked_inplace_autoregression(
     model, batch_size, input, ar_mask, forbidden_tokens=None, device=torch.device("cpu")
 ):
-    for input, ar_mask in zip(input.split(batch_size), ar_mask.split(batch_size)):
+    for input, ar_mask in tqdm.tqdm(
+        zip(input.split(batch_size), ar_mask.split(batch_size)),
+        dynamic_ncols=True,
+        desc="autoregression",
+        total=input.size(0) // batch_size,
+    ):
         i = (ar_mask.sum(0) > 0).nonzero()
         if i.min() > 0:
             model(
@@ -659,7 +664,7 @@ class TaskMaze(Task):
 
 
 def generate_snake_sequences(
-    nb, height, width, nb_colors, length, device=torch.device("cpu")
+    nb, height, width, nb_colors, length, prompt_length, device=torch.device("cpu")
 ):
     worlds = torch.randint(nb_colors, (nb, height, width), device=device)
     nb_prior_visits = torch.zeros(nb, height, width, device=device)
@@ -722,7 +727,8 @@ def generate_snake_sequences(
         sequences_prior_visits[:, 2 * l] = nb_prior_visits[
             i, snake_position[:, 0], snake_position[:, 1]
         ]
-        nb_prior_visits[i, snake_position[:, 0], snake_position[:, 1]] += 1
+        if l < prompt_length:
+            nb_prior_visits[i, snake_position[:, 0], snake_position[:, 1]] += 1
         sequences[:, 2 * l + 1] = snake_direction
 
         # nb x 2
@@ -735,6 +741,30 @@ def generate_snake_sequences(
 # exit(0)
 
 
+def snake_solver(input, ar_mask):
+    for n in range(input.size(0)):
+        i, j, memory = 0, 0, {}
+        # print(input[n])
+        # print(ar_mask[n])
+        for l in range(input.size(1) // 2):
+            if ar_mask[n, 2 * l] == 1:
+                if memory.get((i, j)) is None:
+                    input[n, 2 * l] = -1
+                else:
+                    input[n, 2 * l] = memory[(i, j)]
+            else:
+                # print(f'@3 {memory=}')
+                if memory.get((i, j)) is None:
+                    memory[(i, j)] = input[n, 2 * l]
+                else:
+                    assert memory[(i, j)] == input[n, 2 * l], f"n={n} l={l}"
+            # print(f'@1 {i=} {j=}')
+            d = input[n, 2 * l + 1].item()
+            i += (d + 1) % 2 * (d - 1)
+            j += d % 2 * (d - 2)
+            # print(f'@2 {i=} {j=}')
+
+
 class TaskSnake(Task):
     def __init__(
         self,
@@ -745,18 +775,32 @@ class TaskSnake(Task):
         width,
         nb_colors,
         length,
+        prompt_length,
         device=torch.device("cpu"),
     ):
         self.batch_size = batch_size
         self.height = height
         self.width = width
         self.device = device
+        self.prompt_length = prompt_length
 
         self.train_input, self.train_prior_visits = generate_snake_sequences(
-            nb_train_samples, height, width, nb_colors, length, self.device
+            nb_train_samples,
+            height,
+            width,
+            nb_colors,
+            length,
+            prompt_length,
+            self.device,
         )
         self.test_input, self.test_prior_visits = generate_snake_sequences(
-            nb_test_samples, height, width, nb_colors, length, self.device
+            nb_test_samples,
+            height,
+            width,
+            nb_colors,
+            length,
+            prompt_length,
+            self.device,
         )
 
         self.nb_codes = max(self.train_input.max(), self.test_input.max()) + 1
@@ -784,15 +828,20 @@ class TaskSnake(Task):
             def compute_nb_correct(input, prior_visits):
                 result = input.clone()
                 i = torch.arange(result.size(1), device=result.device)[None, :]
-                ar_mask = torch.logical_and(i >= i.size(0) // 2, i % 2 == 0).long()
+                ar_mask = (
+                    torch.logical_and(i >= self.prompt_length * 2, i % 2 == 0)
+                    .long()
+                    .expand_as(result)
+                )
                 result *= 1 - ar_mask
+
+                # snake_solver(result,ar_mask)
+
                 masked_inplace_autoregression(
                     model, self.batch_size, result, ar_mask, device=self.device
                 )
 
-                nb_total = (
-                    (prior_visits > 0) * ar_mask
-                ).sum()
+                nb_total = ((prior_visits > 0) * ar_mask).sum()
 
                 nb_correct = (
                     (result == input).long() * (prior_visits > 0) * ar_mask
@@ -803,16 +852,16 @@ class TaskSnake(Task):
 
                 return nb_total, nb_correct
 
-            train_nb_total, train_nb_correct = compute_nb_correct(
-                self.train_input, self.train_prior_visits
-            )
+            # train_nb_total, train_nb_correct = compute_nb_correct(
+            # self.train_input, self.train_prior_visits
+            # )
 
-            log_string(
-                f"accuracy_train nb_total {train_nb_total} nb_correct {train_nb_correct} accuracy {(100.0*train_nb_correct)/train_nb_total:.02f}%"
-            )
+            # log_string(
+            # f"accuracy_train nb_total {train_nb_total} nb_correct {train_nb_correct} accuracy {(100.0*train_nb_correct)/train_nb_total:.02f}%"
+            # )
 
             test_nb_total, test_nb_correct = compute_nb_correct(
-                self.test_input, self.test_prior_visits
+                self.test_input[:1000], self.test_prior_visits[:1000]
             )
 
             log_string(
@@ -882,6 +931,7 @@ elif args.task == "snake":
         width=args.snake_width,
         nb_colors=args.snake_nb_colors,
         length=args.snake_length,
+        prompt_length=args.snake_length // 2,
         device=device,
     )
 
