@@ -1,4 +1,4 @@
-!/usr/bin/env python
+#!/usr/bin/env python
 
 # Any copyright is dedicated to the Public Domain.
 # https://creativecommons.org/publicdomain/zero/1.0/
@@ -511,7 +511,7 @@ class TaskPicoCLVR(Task):
 
         image_name = os.path.join(args.result_dir, f"picoclvr_result_{n_epoch:04d}.png")
         torchvision.utils.save_image(
-            img / 255.0, image_name, nrow=nb_per_primer, padding=1, pad_value=1.0
+            img / 255.0, image_name, nrow=nb_per_primer, padding=1, pad_value=0.0
         )
         log_string(f"wrote {image_name}")
 
@@ -622,15 +622,27 @@ class TaskMaze(Task):
     def compute_error(self, model, split="train", nb_to_use=-1):
         nb_total, nb_correct = 0, 0
         count = torch.zeros(
-            self.width * self.height, self.width * self.height, device=self.device, dtype=torch.int64
+            self.width * self.height,
+            self.width * self.height,
+            device=self.device,
+            dtype=torch.int64,
         )
-        for input in task.batches(split, nb_to_use):
+        for input in tqdm.tqdm(
+            task.batches(split, nb_to_use),
+            dynamic_ncols=True,
+            desc=f"test-mazes",
+        ):
             result = input.clone()
             ar_mask = result.new_zeros(result.size())
             ar_mask[:, self.height * self.width :] = 1
             result *= 1 - ar_mask
             masked_inplace_autoregression(
-                model, self.batch_size, result, ar_mask, device=self.device
+                model,
+                self.batch_size,
+                result,
+                ar_mask,
+                progress_bar_desc=None,
+                device=self.device,
             )
             mazes, paths = self.seq2map(result)
             path_correctness = maze.path_correctness(mazes, paths)
@@ -705,6 +717,7 @@ class TaskMaze(Task):
                 target_paths=paths,
                 predicted_paths=predicted_paths,
                 path_correct=maze.path_correctness(mazes, predicted_paths),
+                path_optimal=maze.path_optimality(paths, predicted_paths),
             )
             log_string(f"wrote {filename}")
 

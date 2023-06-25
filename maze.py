@@ -146,8 +146,16 @@ def mark_path(walls, i, j, goal_i, goal_j, policy):
         assert n < nmax
 
 
+def path_optimality(ref_paths, paths):
+    return (ref_paths == v_path).long().flatten(1).sum(1) == (
+        paths == v_path
+    ).long().flatten(1).sum(1)
+
+
 def path_correctness(mazes, paths):
-    still_ok = (mazes - (paths * (paths < 4))).view(mazes.size(0), -1).abs().sum(1) == 0
+    still_ok = (mazes - (paths * (paths != v_path))).view(mazes.size(0), -1).abs().sum(
+        1
+    ) == 0
     reached = still_ok.new_zeros(still_ok.size())
     current, pred_current = paths.clone(), paths.new_zeros(paths.size())
     goal = (mazes == v_goal).long()
@@ -214,6 +222,7 @@ def save_image(
     score_paths=None,
     score_truth=None,
     path_correct=None,
+    path_optimal=None,
 ):
     colors = torch.tensor(
         [
@@ -276,16 +285,26 @@ def save_image(
         )
         imgs = torch.cat((imgs, c_score_paths.unsqueeze(1)), 1)
 
+    img = torch.tensor([224, 224, 224]).view(1, -1, 1, 1)
+
     # NxKxCxHxW
-    if path_correct is None:
-        path_correct = torch.zeros(imgs.size(0)) <= 1
-    path_correct = path_correct.cpu().long().view(-1, 1, 1, 1)
-    img = torch.tensor([224, 224, 224]).view(1, -1, 1, 1) * path_correct + torch.tensor(
-        [255, 0, 0]
-    ).view(1, -1, 1, 1) * (1 - path_correct)
+    if path_optimal is not None:
+        path_optimal = path_optimal.cpu().long().view(-1, 1, 1, 1)
+        img = (
+            img * (1 - path_optimal)
+            + torch.tensor([0, 255, 0]).view(1, -1, 1, 1) * path_optimal
+        )
+
+    if path_correct is not None:
+        path_correct = path_correct.cpu().long().view(-1, 1, 1, 1)
+        img = img * path_correct + torch.tensor([255, 0, 0]).view(1, -1, 1, 1) * (
+            1 - path_correct
+        )
+
     img = img.expand(
         -1, -1, imgs.size(3) + 2, 1 + imgs.size(1) * (1 + imgs.size(4))
     ).clone()
+
     for k in range(imgs.size(1)):
         img[
             :,
