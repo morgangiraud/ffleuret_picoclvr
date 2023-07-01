@@ -285,7 +285,7 @@ def save_image(
         )
         imgs = torch.cat((imgs, c_score_paths.unsqueeze(1)), 1)
 
-    img = torch.tensor([224, 224, 224]).view(1, -1, 1, 1)
+    img = torch.tensor([255, 255, 0]).view(1, -1, 1, 1)
 
     # NxKxCxHxW
     if path_optimal is not None:
