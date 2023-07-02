@@ -968,7 +968,9 @@ class TaskStack(Task):
             )
 
             #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            input = self.test_input[:10, :50]
+            l=50
+            l=l-l%(1+self.nb_digits)
+            input = self.test_input[:10, :l]
             result = input.clone()
             stack.remove_popped_values(result, self.nb_stacks, self.nb_digits)
             ar_mask = (result != input).long()
