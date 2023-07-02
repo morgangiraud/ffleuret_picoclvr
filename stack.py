@@ -94,7 +94,7 @@ if __name__ == "__main__":
         # print(seq_to_str(seq[n], recorded_stack_counts[n]))
         print(seq_to_str(seq[n], nb_stacks=nb_stacks, nb_digits=nb_digits))
 
-    print("-- TEST ------------------------------")
+    print("-- PREPARED FOR TEST -----------------")
 
     remove_popped_values(seq, nb_stacks, nb_digits)
 
