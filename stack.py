@@ -80,15 +80,13 @@ def seq_to_str(seq, nb_stacks, nb_digits, recorded_stack_counts=None):
 ######################################################################
 
 if __name__ == "__main__":
-    nb, nb_steps, nb_stacks, nb_digits = 150000, 10, 1, 1
+    nb, nb_steps, nb_stacks, nb_digits = 150000, 20, 2, 1
     seq, recorded_stack_counts = generate_sequences(
         nb=nb,
         nb_steps=nb_steps,
         nb_stacks=nb_stacks,
         nb_digits=nb_digits,
     )
-
-    print("-- TRAIN -----------------------------")
 
     for n in range(min(10, seq.size(0))):
         # print(seq_to_str(seq[n], recorded_stack_counts[n]))
