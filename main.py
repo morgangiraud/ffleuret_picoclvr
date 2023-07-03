@@ -123,24 +123,8 @@ args = parser.parse_args()
 
 assert args.picocvlr_prune_properties in {"none", "train+eval", "eval"}
 
-if args.result_dir is None: args.result_dir=f"results_{args.task}"
-
-try:
-    os.mkdir(args.result_dir)
-except FileExistsError:
-    if not args.overwrite_results:
-        print(f"result directory {args.result_dir} already exists")
-        exit(1)
-
-log_file = open(os.path.join(args.result_dir, args.log_filename), "a")
-
-if args.seed >= 0:
-    # torch.backends.cudnn.deterministic = True
-    # torch.backends.cudnn.benchmark = False
-    # torch.use_deterministic_algorithms(True)
-    torch.manual_seed(args.seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(args.seed)
+if args.result_dir is None:
+    args.result_dir = f"results_{args.task}"
 
 ######################################################################
 
@@ -181,6 +165,25 @@ if args.task in default_args:
     for k, v in default_args[args.task].items():
         if getattr(args, k) is None:
             setattr(args, k, v)
+
+######################################################################
+
+try:
+    os.mkdir(args.result_dir)
+except FileExistsError:
+    if not args.overwrite_results:
+        print(f"result directory {args.result_dir} already exists")
+        exit(1)
+
+log_file = open(os.path.join(args.result_dir, args.log_filename), "a")
+
+if args.seed >= 0:
+    # torch.backends.cudnn.deterministic = True
+    # torch.backends.cudnn.benchmark = False
+    # torch.use_deterministic_algorithms(True)
+    torch.manual_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(args.seed)
 
 ######################################################################
 
@@ -706,14 +709,14 @@ class TaskMaze(Task):
                 model, "train", nb_to_use=1000
             )
             log_string(
-                f"accuracy_train nb_total {train_nb_total} nb_correct {train_nb_correct} accuracy {(100.0*train_nb_correct)/train_nb_total:.02f}%"
+                f"accuracy_train {n_epoch} nb_total {train_nb_total} nb_correct {train_nb_correct} accuracy {(100.0*train_nb_correct)/train_nb_total:.02f}%"
             )
 
             test_nb_total, test_nb_correct, count = self.compute_error(
                 model, "test", nb_to_use=1000
             )
             log_string(
-                f"accuracy_test nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%"
+                f"accuracy_test {n_epoch} nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%"
             )
 
             if count is not None:
@@ -859,7 +862,7 @@ class TaskSnake(Task):
             )
 
             log_string(
-                f"accuracy_test nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%"
+                f"accuracy_test {n_epoch} nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%"
             )
 
             model.train(t)
@@ -916,12 +919,10 @@ class TaskStack(Task):
             self.device,
         )
 
-        mask = self.test_input.clone()
-        stack.remove_popped_values(mask, self.nb_stacks, self.nb_digits)
-        mask = mask != self.test_input
-        counts = self.test_stack_counts.flatten()[mask.flatten()]
+        i = torch.logical_and(self.test_input % 2 == 1, self.test_input < 2 * nb_stacks)
+        counts = self.test_stack_counts.flatten()[i.flatten()]
         counts = F.one_hot(counts).sum(0)
-        log_string(f"stack_count {counts}")
+        log_string(f"pop_stack_counts {counts}")
 
         self.nb_codes = max(self.train_input.max(), self.test_input.max()) + 1
 
@@ -966,13 +967,12 @@ class TaskStack(Task):
             test_nb_total, test_nb_correct = compute_nb_correct(self.test_input[:1000])
 
             log_string(
-                f"accuracy_test nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%"
+                f"accuracy_test {n_epoch} nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%"
             )
 
-            #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            l = 50
-            l = l - l % (1 + self.nb_digits)
-            input = self.test_input[:10, :l]
+            ##############################################################
+            # Log a few generated sequences
+            input = self.test_input[:10, : 12 * (1 + self.nb_digits)]
             result = input.clone()
             stack.remove_popped_values(result, self.nb_stacks, self.nb_digits)
             ar_mask = (result != input).long()
@@ -987,7 +987,7 @@ class TaskStack(Task):
                 log_string(
                     f"test_after  {stack.seq_to_str(result[n],nb_stacks=self.nb_stacks,nb_digits=self.nb_digits)}"
                 )
-            #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            ##############################################################
 
             model.train(t)
 
