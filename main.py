@@ -123,6 +123,8 @@ args = parser.parse_args()
 
 assert args.picocvlr_prune_properties in {"none", "train+eval", "eval"}
 
+if args.result_dir is None: args.result_dir=f"results_{args.task}"
+
 try:
     os.mkdir(args.result_dir)
 except FileExistsError:
@@ -144,35 +146,30 @@ if args.seed >= 0:
 
 default_args = {
     "picoclvr": {
-        "result_dir": "results_picoclvr",
         "nb_epochs": 25,
         "batch_size": 25,
         "nb_train_samples": 250000,
         "nb_test_samples": 10000,
     },
     "mnist": {
-        "result_dir": "results_mnist",
         "nb_epochs": 25,
         "batch_size": 10,
         "nb_train_samples": 250000,
         "nb_test_samples": 10000,
     },
     "maze": {
-        "result_dir": "results_maze",
         "nb_epochs": 25,
         "batch_size": 25,
         "nb_train_samples": 250000,
         "nb_test_samples": 10000,
     },
     "snake": {
-        "result_dir": "results_snake",
         "nb_epochs": 5,
         "batch_size": 25,
         "nb_train_samples": 250000,
         "nb_test_samples": 10000,
     },
     "stack": {
-        "result_dir": "results_stack",
         "nb_epochs": 5,
         "batch_size": 25,
         "nb_train_samples": 100000,
