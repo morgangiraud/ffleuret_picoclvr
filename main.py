@@ -1028,10 +1028,15 @@ class TaskExpr(Task):
         self.device = device
 
         train_sequences = expr.generate_sequences(
-            nb_train_samples, nb_variables=nb_variables, length=2*sequence_length, randomize_length=True,
+            nb_train_samples,
+            nb_variables=nb_variables,
+            length=2 * sequence_length,
+            randomize_length=True,
         )
         test_sequences = expr.generate_sequences(
-            nb_test_samples, nb_variables=nb_variables, length=sequence_length,
+            nb_test_samples,
+            nb_variables=nb_variables,
+            length=sequence_length,
         )
         self.char2id = dict(
             [
@@ -1084,8 +1089,8 @@ class TaskExpr(Task):
             input.split(self.batch_size), dynamic_ncols=True, desc=desc
         ):
             if split == "train":
-                last=(batch!=self.filler).max(0).values.nonzero().max()+1
-                batch=batch[:,:last]
+                last = (batch != self.filler).max(0).values.nonzero().max() + 1
+                batch = batch[:, :last]
             yield batch
 
     def vocabulary_size(self):
@@ -1131,7 +1136,7 @@ class TaskExpr(Task):
             )
             correct = (1 - ar_mask) * self.space + ar_mask * input
             for n in range(result.size(0)):
-                comment="GOOD" if (result[n]-input[n]).abs().max()==0 else ""
+                comment = "GOOD" if (result[n] - input[n]).abs().max() == 0 else ""
                 log_string(f"test_after  {self.seq2str(result[n])} {comment}")
                 log_string(f"correct     {self.seq2str(correct[n])}")
             ##############################################################

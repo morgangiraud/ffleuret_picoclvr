@@ -60,7 +60,7 @@ def generate_sequences(nb, nb_variables=5, length=20, randomize_length=False):
         while result == None or max(result.values()) > 100:
             l = length
             if l > 5 and randomize_length:
-                l = 5 + torch.randint(l-5, (1,)).item()
+                l = 5 + torch.randint(l - 5, (1,)).item()
             p, v = generate_program(nb_variables, l)
             v = ", ".join(['"' + v + '": ' + v for v in v])
             ldict = {}
