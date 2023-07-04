@@ -48,7 +48,7 @@ def generate_program(nb_variables, length):
     variables = set()
     while len(s) < length:
         v = random_var(nb_variables=nb_variables)
-        s += v + "=" + random_expr(variables, budget=min(20, length - 3 - len(s))) + ";"
+        s += v + "=" + random_expr(variables, budget=20) + ";"
         variables.add(v)
     return s, variables
 

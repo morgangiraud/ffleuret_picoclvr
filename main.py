@@ -120,6 +120,13 @@ parser.add_argument("--stack_nb_digits", type=int, default=3)
 
 parser.add_argument("--stack_fraction_values_for_train", type=float, default=None)
 
+##############################
+# Expr options
+
+parser.add_argument("--expr_nb_variables", type=int, default=5)
+
+parser.add_argument("--expr_sequence_length", type=int, default=30)
+
 ######################################################################
 
 args = parser.parse_args()
@@ -1012,18 +1019,26 @@ class TaskExpr(Task):
         self,
         nb_train_samples,
         nb_test_samples,
+        nb_variables,
+        sequence_length,
         batch_size,
         device=torch.device("cpu"),
     ):
         self.batch_size = batch_size
         self.device = device
 
-        train_sequences = expr.generate_sequences(nb_train_samples)
-        test_sequences = expr.generate_sequences(nb_test_samples)
+        train_sequences = expr.generate_sequences(
+            nb_train_samples, nb_variables=nb_variables, length=sequence_length
+        )
+        test_sequences = expr.generate_sequences(
+            nb_test_samples, nb_variables=nb_variables, length=sequence_length
+        )
         self.char2id = dict(
             [
                 (c, n)
-                for n, c in enumerate(set("#"+"".join(train_sequences + test_sequences)))
+                for n, c in enumerate(
+                    set("#" + "".join(train_sequences + test_sequences))
+                )
             ]
         )
         self.id2char = dict([(n, c) for c, n in self.char2id.items()])
@@ -1074,9 +1089,9 @@ class TaskExpr(Task):
 
             def compute_nb_correct(input):
                 result = input.clone()
-                space = self.char2id["#"]
+                filler, space = self.char2id["#"], self.char2id[" "]
                 ar_mask = (result == space).long().cumsum(dim=1).clamp(max=1)
-                result = (1 - ar_mask) * result + space * ar_mask
+                result = (1 - ar_mask) * result + filler * ar_mask
                 masked_inplace_autoregression(
                     model, self.batch_size, result, ar_mask, device=self.device
                 )
@@ -1096,9 +1111,9 @@ class TaskExpr(Task):
             # Log a few generated sequences
             input = self.test_input[:10]
             result = input.clone()
-            space = self.char2id["#"]
+            filler, space = self.char2id["#"], self.char2id[" "]
             ar_mask = (result == space).long().cumsum(dim=1).clamp(max=1)
-            result = (1 - ar_mask) * result + space * ar_mask
+            result = (1 - ar_mask) * result + filler * ar_mask
             for n in range(result.size(0)):
                 s = "".join([self.id2char[k.item()] for k in result[n]])
                 log_string(f"test_before {s}")
@@ -1193,6 +1208,8 @@ elif args.task == "expr":
     task = TaskExpr(
         nb_train_samples=args.nb_train_samples,
         nb_test_samples=args.nb_test_samples,
+        nb_variables=args.expr_nb_variables,
+        sequence_length=args.expr_sequence_length,
         batch_size=args.batch_size,
         device=device,
     )
