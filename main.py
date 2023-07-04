@@ -170,10 +170,10 @@ default_args = {
         "nb_test_samples": 1000,
     },
     "expr": {
-        "nb_epochs": 5,
+        "nb_epochs": 50,
         "batch_size": 25,
-        "nb_train_samples": 100000,
-        "nb_test_samples": 1000,
+        "nb_train_samples": 250000,
+        "nb_test_samples": 10000,
     },
 }
 
@@ -1028,10 +1028,10 @@ class TaskExpr(Task):
         self.device = device
 
         train_sequences = expr.generate_sequences(
-            nb_train_samples, nb_variables=nb_variables, length=sequence_length
+            nb_train_samples, nb_variables=nb_variables, length=2*sequence_length, randomize_length=True,
         )
         test_sequences = expr.generate_sequences(
-            nb_test_samples, nb_variables=nb_variables, length=sequence_length
+            nb_test_samples, nb_variables=nb_variables, length=sequence_length,
         )
         self.char2id = dict(
             [
@@ -1042,7 +1042,10 @@ class TaskExpr(Task):
             ]
         )
         self.id2char = dict([(n, c) for c, n in self.char2id.items()])
-        len_max = max([len(x) for x in train_sequences + test_sequences])
+
+        self.filler, self.space = self.char2id["#"], self.char2id[" "]
+
+        len_max = max([len(x) for x in train_sequences])
         self.train_input = torch.cat(
             [
                 torch.tensor(
@@ -1054,6 +1057,8 @@ class TaskExpr(Task):
             ],
             0,
         ).to(device)
+
+        len_max = max([len(x) for x in test_sequences])
         self.test_input = torch.cat(
             [
                 torch.tensor(
@@ -1065,6 +1070,7 @@ class TaskExpr(Task):
             ],
             0,
         ).to(device)
+
         self.nb_codes = max(self.train_input.max(), self.test_input.max()) + 1
 
     def batches(self, split="train", nb_to_use=-1, desc=None):
@@ -1077,10 +1083,16 @@ class TaskExpr(Task):
         for batch in tqdm.tqdm(
             input.split(self.batch_size), dynamic_ncols=True, desc=desc
         ):
+            if split == "train":
+                last=(batch!=self.filler).max(0).values.nonzero().max()+1
+                batch=batch[:,:last]
             yield batch
 
     def vocabulary_size(self):
         return self.nb_codes
+
+    def seq2str(self, s):
+        return "".join([self.id2char[k.item()] for k in s])
 
     def produce_results(self, n_epoch, model):
         with torch.autograd.no_grad():
@@ -1089,15 +1101,14 @@ class TaskExpr(Task):
 
             def compute_nb_correct(input):
                 result = input.clone()
-                filler, space = self.char2id["#"], self.char2id[" "]
-                ar_mask = (result == space).long().cumsum(dim=1).clamp(max=1)
-                result = (1 - ar_mask) * result + ar_mask * filler
+                ar_mask = (result == self.space).long().cumsum(dim=1).clamp(max=1)
+                result = (1 - ar_mask) * result + ar_mask * self.filler
                 masked_inplace_autoregression(
                     model, self.batch_size, result, ar_mask, device=self.device
                 )
 
-                nb_total = ar_mask.sum()
-                nb_correct = ((input == result).long() * ar_mask).sum()
+                nb_total = input.size(0)
+                nb_correct = (input == result).long().min(1).values.sum()
 
                 return nb_total, nb_correct
 
@@ -1111,21 +1122,18 @@ class TaskExpr(Task):
             # Log a few generated sequences
             input = self.test_input[:10]
             result = input.clone()
-            filler, space = self.char2id["#"], self.char2id[" "]
-            ar_mask = (result == space).long().cumsum(dim=1).clamp(max=1)
-            result = (1 - ar_mask) * result + ar_mask * filler
+            ar_mask = (result == self.space).long().cumsum(dim=1).clamp(max=1)
+            result = (1 - ar_mask) * result + ar_mask * self.filler
             for n in range(result.size(0)):
-                s = "".join([self.id2char[k.item()] for k in result[n]])
-                log_string(f"test_before {s}")
+                log_string(f"test_before {self.seq2str(result[n])}")
             masked_inplace_autoregression(
                 model, self.batch_size, result, ar_mask, device=self.device
             )
-            correct = (1 - ar_mask) * space + ar_mask * input
+            correct = (1 - ar_mask) * self.space + ar_mask * input
             for n in range(result.size(0)):
-                s = "".join([self.id2char[k.item()] for k in result[n]])
-                log_string(f"test_after  {s}")
-                s = "".join([self.id2char[k.item()] for k in correct[n]])
-                log_string(f"correct     {s}")
+                comment="GOOD" if (result[n]-input[n]).abs().max()==0 else ""
+                log_string(f"test_after  {self.seq2str(result[n])} {comment}")
+                log_string(f"correct     {self.seq2str(correct[n])}")
             ##############################################################
 
             model.train(t)

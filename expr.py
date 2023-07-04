@@ -53,12 +53,15 @@ def generate_program(nb_variables, length):
     return s, variables
 
 
-def generate_sequences(nb, nb_variables=5, length=20):
+def generate_sequences(nb, nb_variables=5, length=20, randomize_length=False):
     sequences = []
     for n in range(nb):
         result = None
         while result == None or max(result.values()) > 100:
-            p, v = generate_program(nb_variables, length)
+            l = length
+            if l > 5 and randomize_length:
+                l = 5 + torch.randint(l-5, (1,)).item()
+            p, v = generate_program(nb_variables, l)
             v = ", ".join(['"' + v + '": ' + v for v in v])
             ldict = {}
             exec(p + "result={" + v + "}", globals(), ldict)
@@ -75,7 +78,7 @@ if __name__ == "__main__":
     import time
 
     start_time = time.perf_counter()
-    sequences = generate_sequences(1000)
+    sequences = generate_sequences(1000, randomize_length=True)
     end_time = time.perf_counter()
     for s in sequences[:10]:
         print(s)
