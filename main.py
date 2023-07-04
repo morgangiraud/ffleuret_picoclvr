@@ -32,7 +32,7 @@ parser = argparse.ArgumentParser(
 )
 
 parser.add_argument(
-    "--task", type=str, default="picoclvr", help="picoclvr, mnist, maze, snake, stack"
+    "--task", type=str, default="picoclvr", help="picoclvr, mnist, maze, snake, stack, expr"
 )
 
 parser.add_argument("--log_filename", type=str, default="train.log", help=" ")
@@ -159,6 +159,12 @@ default_args = {
         "nb_train_samples": 100000,
         "nb_test_samples": 1000,
     },
+    "expr": {
+        "nb_epochs": 5,
+        "batch_size": 25,
+        "nb_train_samples": 100000,
+        "nb_test_samples": 1000,
+    },
 }
 
 if args.task in default_args:
@@ -217,9 +223,9 @@ def masked_inplace_autoregression(
     progress_bar_desc="autoregression",
     device=torch.device("cpu"),
 ):
-    # p = logits.softmax(1)
-    # entropy[:,s]= p.xlogy(p).sum(1) / math.log(2)
+
     batches = zip(input.split(batch_size), ar_mask.split(batch_size))
+
     if progress_bar_desc is not None:
         batches = tqdm.tqdm(
             batches,
@@ -227,6 +233,7 @@ def masked_inplace_autoregression(
             desc=progress_bar_desc,
             total=input.size(0) // batch_size,
         )
+
     for input, ar_mask in batches:
         i = (ar_mask.sum(0) > 0).nonzero()
         if i.min() > 0:
@@ -995,6 +1002,99 @@ class TaskStack(Task):
 ######################################################################
 
 
+import expr
+
+
+class TaskExpr(Task):
+    def __init__(
+        self,
+        nb_train_samples,
+        nb_test_samples,
+        batch_size,
+        device=torch.device("cpu"),
+    ):
+        self.batch_size = batch_size
+        self.device = device
+
+        train_sequences = expr.generate_sequences(nb_train_samples)
+        test_sequences = expr.generate_sequences(nb_test_samples)
+        self.char2id = dict([ (c,n) for n,c in enumerate(set("".join(train_sequences + test_sequences))) ])
+        self.id2char = dict([ (n,c) for n,c in self.char2id.items() ])
+        len_max = max([len(x) for x in train_sequences + test_sequences])
+        self.train_input = torch.cat([torch.tensor([char2id(c) for c in s + " "*(len_max-len(s))] for s in train_sequences)], 0)
+        self.test_input = torch.cat([torch.tensor([char2id(c) for c in s + " "*(len_max-len(s))] for s in test_sequences)], 0)
+        self.nb_codes = max(self.train_input.max(), self.test_input.max()) + 1
+
+    def batches(self, split="train", nb_to_use=-1, desc=None):
+        assert split in {"train", "test"}
+        input = self.train_input if split == "train" else self.test_input
+        if nb_to_use > 0:
+            input = input[:nb_to_use]
+        if desc is None:
+            desc = f"epoch-{split}"
+        for batch in tqdm.tqdm(
+            input.split(self.batch_size), dynamic_ncols=True, desc=desc
+        ):
+            yield batch
+
+    def vocabulary_size(self):
+        return self.nb_codes
+
+    def produce_results(self, n_epoch, model):
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        with torch.autograd.no_grad():
+            t = model.training
+            model.eval()
+
+            def compute_nb_correct(input):
+                result = input.clone()
+                stack.remove_popped_values(result, self.nb_stacks, self.nb_digits)
+                ar_mask = (result != input).long()
+                masked_inplace_autoregression(
+                    model, self.batch_size, result, ar_mask, device=self.device
+                )
+
+                errors = ((result != input).long() * ar_mask).reshape(
+                    -1, 1 + self.nb_digits
+                )
+                ar_mask = ar_mask.reshape(-1, 1 + self.nb_digits)
+
+                nb_total = ar_mask.max(1).values.sum()
+                nb_correct = nb_total - errors.max(1).values.sum()
+
+                return nb_total, nb_correct
+
+            test_nb_total, test_nb_correct = compute_nb_correct(self.test_input[:1000])
+
+            log_string(
+                f"accuracy_test {n_epoch} nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%"
+            )
+
+            ##############################################################
+            # Log a few generated sequences
+            input = self.test_input[:10, : 12 * (1 + self.nb_digits)]
+            result = input.clone()
+            stack.remove_popped_values(result, self.nb_stacks, self.nb_digits)
+            ar_mask = (result != input).long()
+            for n in range(result.size(0)):
+                log_string(
+                    f"test_before {stack.seq_to_str(result[n],nb_stacks=self.nb_stacks,nb_digits=self.nb_digits)}"
+                )
+            masked_inplace_autoregression(
+                model, self.batch_size, result, ar_mask, device=self.device
+            )
+            for n in range(result.size(0)):
+                log_string(
+                    f"test_after  {stack.seq_to_str(result[n],nb_stacks=self.nb_stacks,nb_digits=self.nb_digits)}"
+                )
+            ##############################################################
+
+            model.train(t)
+
+
+######################################################################
+
+
 def picoclvr_pruner_horizontal_green(p):
     return not ("green" in p and ("left" in p or "right" in p))
 
@@ -1065,6 +1165,14 @@ elif args.task == "stack":
         nb_stacks=args.stack_nb_stacks,
         nb_digits=args.stack_nb_digits,
         fraction_values_for_train=args.stack_fraction_values_for_train,
+        device=device,
+    )
+
+elif args.task == "expr":
+    task = TaskExpr(
+        nb_train_samples=args.nb_train_samples,
+        nb_test_samples=args.nb_test_samples,
+        batch_size=args.batch_size,
         device=device,
     )
 
