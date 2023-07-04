@@ -1023,29 +1023,33 @@ class TaskExpr(Task):
         self.char2id = dict(
             [
                 (c, n)
-                for n, c in enumerate(set("".join(train_sequences + test_sequences)))
+                for n, c in enumerate(set("#"+"".join(train_sequences + test_sequences)))
             ]
         )
-        self.id2char = dict([(n, c) for n, c in self.char2id.items()])
+        self.id2char = dict([(n, c) for c, n in self.char2id.items()])
         len_max = max([len(x) for x in train_sequences + test_sequences])
         self.train_input = torch.cat(
             [
                 torch.tensor(
-                    [char2id(c) for c in s + " " * (len_max - len(s))]
-                    for s in train_sequences
+                    [
+                        [self.char2id[c] for c in s + "#" * (len_max - len(s))]
+                        for s in train_sequences
+                    ]
                 )
             ],
             0,
-        )
+        ).to(device)
         self.test_input = torch.cat(
             [
                 torch.tensor(
-                    [char2id(c) for c in s + " " * (len_max - len(s))]
-                    for s in test_sequences
+                    [
+                        [self.char2id[c] for c in s + "#" * (len_max - len(s))]
+                        for s in test_sequences
+                    ]
                 )
             ],
             0,
-        )
+        ).to(device)
         self.nb_codes = max(self.train_input.max(), self.test_input.max()) + 1
 
     def batches(self, split="train", nb_to_use=-1, desc=None):
@@ -1064,26 +1068,21 @@ class TaskExpr(Task):
         return self.nb_codes
 
     def produce_results(self, n_epoch, model):
-        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         with torch.autograd.no_grad():
             t = model.training
             model.eval()
 
             def compute_nb_correct(input):
                 result = input.clone()
-                stack.remove_popped_values(result, self.nb_stacks, self.nb_digits)
-                ar_mask = (result != input).long()
+                space = self.char2id["#"]
+                ar_mask = (result == space).long().cumsum(dim=1).clamp(max=1)
+                result = (1 - ar_mask) * result + space * ar_mask
                 masked_inplace_autoregression(
                     model, self.batch_size, result, ar_mask, device=self.device
                 )
 
-                errors = ((result != input).long() * ar_mask).reshape(
-                    -1, 1 + self.nb_digits
-                )
-                ar_mask = ar_mask.reshape(-1, 1 + self.nb_digits)
-
-                nb_total = ar_mask.max(1).values.sum()
-                nb_correct = nb_total - errors.max(1).values.sum()
+                nb_total = ar_mask.sum()
+                nb_correct = ((input == result).long() * ar_mask).sum()
 
                 return nb_total, nb_correct
 
@@ -1095,21 +1094,20 @@ class TaskExpr(Task):
 
             ##############################################################
             # Log a few generated sequences
-            input = self.test_input[:10, : 12 * (1 + self.nb_digits)]
+            input = self.test_input[:10]
             result = input.clone()
-            stack.remove_popped_values(result, self.nb_stacks, self.nb_digits)
-            ar_mask = (result != input).long()
+            space = self.char2id["#"]
+            ar_mask = (result == space).long().cumsum(dim=1).clamp(max=1)
+            result = (1 - ar_mask) * result + space * ar_mask
             for n in range(result.size(0)):
-                log_string(
-                    f"test_before {stack.seq_to_str(result[n],nb_stacks=self.nb_stacks,nb_digits=self.nb_digits)}"
-                )
+                s = "".join([self.id2char[k.item()] for k in result[n]])
+                log_string(f"test_before {s}")
             masked_inplace_autoregression(
                 model, self.batch_size, result, ar_mask, device=self.device
             )
             for n in range(result.size(0)):
-                log_string(
-                    f"test_after  {stack.seq_to_str(result[n],nb_stacks=self.nb_stacks,nb_digits=self.nb_digits)}"
-                )
+                s = "".join([self.id2char[k.item()] for k in result[n]])
+                log_string(f"test_after  {s}")
             ##############################################################
 
             model.train(t)
