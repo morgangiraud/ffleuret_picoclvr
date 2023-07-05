@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import math
+import math, re
 
 import torch, torchvision
 
@@ -53,6 +53,15 @@ def generate_program(nb_variables, length):
     return s, variables
 
 
+def extract_results(seq):
+    f = lambda a: (a[0], -1 if a[1] == "" else int(a[1]))
+    results = [
+        dict([f(tuple(x.split(":"))) for x in re.findall("[A-Z]:[0-9]*", s)])
+        for s in seq
+    ]
+    return results
+
+
 def generate_sequences(nb, nb_variables=5, length=20, randomize_length=False):
     sequences = []
     for n in range(nb):
@@ -78,8 +87,10 @@ if __name__ == "__main__":
     import time
 
     start_time = time.perf_counter()
-    sequences = generate_sequences(1000, randomize_length=True)
+    sequences = generate_sequences(1000)
     end_time = time.perf_counter()
     for s in sequences[:10]:
         print(s)
     print(f"{len(sequences) / (end_time - start_time):.02f} samples per second")
+
+    print(extract_results(sequences[:10]))

@@ -1030,8 +1030,9 @@ class TaskExpr(Task):
         train_sequences = expr.generate_sequences(
             nb_train_samples,
             nb_variables=nb_variables,
-            length=2 * sequence_length,
-            randomize_length=True,
+            length=sequence_length,
+            # length=2 * sequence_length,
+            # randomize_length=True,
         )
         test_sequences = expr.generate_sequences(
             nb_test_samples,
@@ -1114,6 +1115,24 @@ class TaskExpr(Task):
 
                 nb_total = input.size(0)
                 nb_correct = (input == result).long().min(1).values.sum()
+
+                values_input = expr.extract_results([self.seq2str(s) for s in input])
+                max_input = max([max(x.values()) for x in values_input])
+                values_result = expr.extract_results([self.seq2str(s) for s in result])
+                max_result = max(
+                    [-1 if len(x) == 0 else max(x.values()) for x in values_result]
+                )
+
+                nb_missing, nb_predicted = torch.zeros(max_input + 1), torch.zeros(
+                    max_input + 1, max_result + 1
+                )
+                for i, r in zip(values_input, values_result):
+                    for n, vi in i.items():
+                        vr = r.get(n)
+                        if vr is None or vr < 0:
+                            nb_missing[vi] += 1
+                        else:
+                            nb_predicted[vi, vr] += 1
 
                 return nb_total, nb_correct
 
