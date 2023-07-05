@@ -78,7 +78,7 @@ def generate_sequences(nb, nb_variables=5, length=20, randomize_length=False):
 
         k = list(result.keys())
         k.sort()
-        sequences.append(p + " " + ";".join([v + ":" + str(result[v]) for v in k]))
+        sequences.append(p + " " + "".join([v + ":" + str(result[v]) + ";" for v in k]))
 
     return sequences
 
