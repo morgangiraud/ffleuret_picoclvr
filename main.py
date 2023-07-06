@@ -14,7 +14,7 @@ import torch, torchvision
 from torch import nn
 from torch.nn import functional as F
 
-import mygpt, tasks, tensorstack
+import mygpt, tasks
 
 ######################################################################
 
@@ -384,16 +384,16 @@ train_set_perplexity = math.exp(entropy)
 train_examples = {}
 
 for input in task.batches(split="train"):
-    assert input.dim()==2 and input.dtype==torch.int64
+    assert input.dim() == 2 and input.dtype == torch.int64
     for x in input:
-        train_examples[x.sum().item()]=x
+        train_examples[x.sum().item()] = x
 
 for input in task.batches(split="test"):
-    assert input.dim()==2 and input.dtype==torch.int64
+    assert input.dim() == 2 and input.dtype == torch.int64
     for x in input:
         y = train_examples.get(x.sum().item())
         if y is not None:
-            assert x.size() != y.size() or (x-y).abs().sum() > 0
+            assert x.size() != y.size() or (x - y).abs().sum() > 0
 
 del train_examples
 
