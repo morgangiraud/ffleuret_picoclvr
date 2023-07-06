@@ -13,6 +13,8 @@ v_empty, v_wall, v_start, v_goal, v_path = 0, 1, 2, 3, 4
 
 
 def create_maze(h=11, w=17, nb_walls=8):
+    assert h % 2 == 1 and w % 2 == 1
+
     a, k = 0, 0
 
     while k < nb_walls:

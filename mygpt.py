@@ -258,6 +258,30 @@ class MyGPT(nn.Module):
         bs = self.readout(bs)
         return bs
 
+    # ar_mask is a tensor with 0s and 1s, of same shape as input, with
+    # 1s where tokens should be generated. The others are kept
+    # unchanged.
+
+    def masked_inplace_autoregression(
+        self, input, ar_mask, forbidden_tokens=None, deterministic_synthesis=False
+    ):
+        to_generate = (ar_mask.sum(0) > 0).nonzero()
+        if to_generate.min() > 0:
+            self(
+                BracketedSequence(input, 0, to_generate.min())
+            )  # Needed to initialize the model's cache
+        for s in range(to_generate.min(), to_generate.max() + 1):
+            output = self(BracketedSequence(input, s, 1)).x
+            logits = output[:, s]
+            if forbidden_tokens is not None:
+                logits = logits.masked_fill(forbidden_tokens, float("-inf"))
+            if deterministic_synthesis:
+                t_next = logits.argmax(1)
+            else:
+                dist = torch.distributions.categorical.Categorical(logits=logits)
+                t_next = dist.sample()
+            input[:, s] = ar_mask[:, s] * t_next + (1 - ar_mask[:, s]) * input[:, s]
+
 
 ######################################################################
 
@@ -286,8 +310,6 @@ if __name__ == "__main__":
         z = model(BracketedSequence(x, s, 1))
         y2[:, s] = z.x[:, s]
 
-    # print(y1.max(dim = 2).values)
-    # print(y2.max(dim = 2).values)
     print(f"error={((y1 - y2).norm() / (y1.norm() + y2.norm())).item()}")
 
 ######################################################################
