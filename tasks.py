@@ -226,7 +226,7 @@ class PicoCLVR(Task):
 
         result = self.tensorize(primer)
         fill = result.new_full(
-            result.size()[:-1] + (self.height * self.width,), self.t_nul
+            result.size()[:-1] + (self.height * self.width + 1,), self.t_nul
         )
         result = torch.cat((result, fill), 1)
         ar_mask = (result == self.t_nul).long()
