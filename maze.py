@@ -221,8 +221,6 @@ def save_image(
     mazes,
     target_paths=None,
     predicted_paths=None,
-    score_paths=None,
-    score_truth=None,
     path_correct=None,
     path_optimal=None,
 ):
@@ -241,17 +239,6 @@ def save_image(
     c_mazes = (
         colors[mazes.reshape(-1)].reshape(mazes.size() + (-1,)).permute(0, 3, 1, 2)
     )
-
-    if score_truth is not None:
-        score_truth = score_truth.cpu()
-        c_score_truth = score_truth.unsqueeze(1).expand(-1, 3, -1, -1)
-        c_score_truth = (
-            c_score_truth * colors[4].reshape(1, 3, 1, 1)
-            + (1 - c_score_truth) * colors[0].reshape(1, 3, 1, 1)
-        ).long()
-        c_mazes = (mazes.unsqueeze(1) != v_empty) * c_mazes + (
-            mazes.unsqueeze(1) == v_empty
-        ) * c_score_truth
 
     imgs = c_mazes.unsqueeze(1)
 
@@ -275,18 +262,6 @@ def save_image(
         )
         imgs = torch.cat((imgs, c_predicted_paths.unsqueeze(1)), 1)
 
-    if score_paths is not None:
-        score_paths = score_paths.cpu()
-        c_score_paths = score_paths.unsqueeze(1).expand(-1, 3, -1, -1)
-        c_score_paths = (
-            c_score_paths * colors[4].reshape(1, 3, 1, 1)
-            + (1 - c_score_paths) * colors[0].reshape(1, 3, 1, 1)
-        ).long()
-        c_score_paths = c_score_paths * (mazes.unsqueeze(1) == v_empty) + c_mazes * (
-            mazes.unsqueeze(1) != v_empty
-        )
-        imgs = torch.cat((imgs, c_score_paths.unsqueeze(1)), 1)
-
     img = torch.tensor([255, 255, 0]).view(1, -1, 1, 1)
 
     # NxKxCxHxW
@@ -306,6 +281,8 @@ def save_image(
     img = img.expand(
         -1, -1, imgs.size(3) + 2, 1 + imgs.size(1) * (1 + imgs.size(4))
     ).clone()
+
+    print(f"{img.size()=} {imgs.size()=}")
 
     for k in range(imgs.size(1)):
         img[
