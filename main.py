@@ -383,19 +383,27 @@ train_set_perplexity = math.exp(entropy)
 
 train_examples = {}
 
+
 for input in task.batches(split="train"):
     assert input.dim() == 2 and input.dtype == torch.int64
     for x in input:
         train_examples[x.sum().item()] = x
 
+nb_total, nb_collisions = 0, 0
 for input in task.batches(split="test"):
     assert input.dim() == 2 and input.dtype == torch.int64
     for x in input:
+        nb_total += 1
         y = train_examples.get(x.sum().item())
         if y is not None:
-            assert x.size() != y.size() or (x - y).abs().sum() > 0
+            if x.size() == y.size() and (x - y).abs().sum() == 0:
+                nb_collisions += 1
 
 del train_examples
+
+log_string(
+    f"data_check {nb_collisions*100/nb_total:.02f}% ({nb_collisions}/{nb_total}) of test samples are in the train set"
+)
 
 ##############################
 

@@ -63,6 +63,7 @@ def extract_results(seq):
 
 
 def generate_sequences(nb, nb_variables=5, length=20, randomize_length=False):
+    assert nb_variables <= 26
     sequences = []
     for n in range(nb):
         result = None
@@ -87,7 +88,7 @@ if __name__ == "__main__":
     import time
 
     start_time = time.perf_counter()
-    sequences = generate_sequences(1000)
+    sequences = generate_sequences(1000, length=30)
     end_time = time.perf_counter()
     for s in sequences[:10]:
         print(s)
