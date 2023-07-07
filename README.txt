@@ -1,5 +1,16 @@
+
 For the stack experiment:
 
-./main.py --task=stack --stack_fraction_values_for_train=0.75 --stack_nb_stacks=3
+./main.py --task=stack
 
 Takes ~1h10min on a 4090.
+
+For the arithmetic expressions experiments
+
+# 38M parameters / 250k samples
+
+./main.py --task=expr
+
+# 352M parameters / 2.5M samples
+
+./main.py --task=expr --nb_blocks=48 --result_dir=results_expr_48b_d1024_2.5M --dim_model=1024 --nb_train_samples=2500000 --learning_rate_schedule="1:2e-5,3:4e-6"
