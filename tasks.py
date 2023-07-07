@@ -225,6 +225,10 @@ class PicoCLVR(Task):
             primer += [primer_descr + " <img>"] * nb_per_primer
 
         result = self.tensorize(primer)
+        fill = result.new_full(
+            result.size()[:-1] + (self.height * self.width,), self.t_nul
+        )
+        result = torch.cat((result, fill), 1)
         ar_mask = (result == self.t_nul).long()
         masked_inplace_autoregression(
             model,
