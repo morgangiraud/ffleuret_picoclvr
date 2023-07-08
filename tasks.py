@@ -956,7 +956,7 @@ class Expr(Task):
             for n in range(result.size(0)):
                 comment = "GOOD" if (result[n] - input[n]).abs().max() == 0 else ""
                 logger(f"test_after  {self.seq2str(result[n])} {comment}")
-                logger(f"correct     {self.seq2str(correct[n])}")
+                logger(f"truth       {self.seq2str(correct[n])}")
             ##############################################################
 
             model.train(t)
