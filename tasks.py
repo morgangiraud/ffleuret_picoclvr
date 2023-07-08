@@ -809,9 +809,8 @@ class Expr(Task):
             nb_train_samples,
             nb_variables=nb_variables,
             length=sequence_length,
-            # length=2 * sequence_length,
-            # randomize_length=True,
         )
+
         test_sequences = expr.generate_sequences(
             nb_test_samples,
             nb_variables=nb_variables,

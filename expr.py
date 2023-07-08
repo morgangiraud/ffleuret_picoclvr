@@ -44,11 +44,16 @@ def random_expr(variables, budget):
 def generate_program(nb_variables, length):
     s = ""
     variables = set()
+
+    # We take length itself half of the time, and uniform between 1
+    # and length otherwise. The actual length can be slightly greater
+
     length = min(length, 1+torch.randint(length*2, (1,)).item())
     while len(s) < length:
         v = random_var(nb_variables=nb_variables)
         s += v + "=" + random_expr(variables, budget=20) + ";"
         variables.add(v)
+
     return s, variables
 
 
@@ -61,15 +66,14 @@ def extract_results(seq):
     return results
 
 
-def generate_sequences(nb, nb_variables=5, length=20, randomize_length=False):
+def generate_sequences(nb, nb_variables=5, length=20):
     assert nb_variables <= 26
     sequences = []
+    result_max=99
     for n in range(nb):
         result = None
-        while result == None or max(result.values()) > 100:
+        while result == None or max(result.values()) > result_max:
             l = length
-            if l > 5 and randomize_length:
-                l = 5 + torch.randint(l - 5, (1,)).item()
             p, v = generate_program(nb_variables, l)
             v = ", ".join(['"' + v + '": ' + v for v in v])
             ldict = {}
