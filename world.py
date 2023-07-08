@@ -30,7 +30,7 @@ class Box:
         return False
 
 
-def scene2tensor(xh, yh, scene, size=512):
+def scene2tensor(xh, yh, scene, size=64):
     width, height = size, size
     pixel_map = torch.ByteTensor(width, height, 4).fill_(255)
     data = pixel_map.numpy()
@@ -48,11 +48,9 @@ def scene2tensor(xh, yh, scene, size=512):
         ctx.rel_line_to(-b.w * size, 0)
         ctx.close_path()
         ctx.set_source_rgba(b.r, b.g, b.b, 1.0)
-        ctx.fill_preserve()
-        ctx.set_source_rgba(0, 0, 0, 1.0)
-        ctx.stroke()
+        ctx.fill()
 
-    hs = size * 0.05
+    hs = size * 0.1
     ctx.set_source_rgba(0.0, 0.0, 0.0, 1.0)
     ctx.move_to(xh * size - hs / 2, yh * size - hs / 2)
     ctx.rel_line_to(hs, 0)
@@ -87,7 +85,7 @@ def random_scene():
     return scene
 
 
-def sequence(length=10):
+def sequence(nb_steps=10, all_frames=False):
     delta = 0.1
     effects = [
         (False, 0, 0),
@@ -102,12 +100,15 @@ def sequence(length=10):
     ]
 
     while True:
+
+        frames =[]
+
         scene = random_scene()
         xh, yh = tuple(x.item() for x in torch.rand(2))
 
-        frame_start = scene2tensor(xh, yh, scene)
+        frames.append(scene2tensor(xh, yh, scene))
 
-        actions = torch.randint(len(effects), (length,))
+        actions = torch.randint(len(effects), (nb_steps,))
         change = False
 
         for a in actions:
@@ -137,14 +138,20 @@ def sequence(length=10):
                 if xh < 0 or xh > 1 or yh < 0 or yh > 1:
                     xh, yh = x, y
 
-        frame_end = scene2tensor(xh, yh, scene)
+            if all_frames:
+                frames.append(scene2tensor(xh, yh, scene))
+
+        if not all_frames:
+            frames.append(scene2tensor(xh, yh, scene))
+
         if change:
             break
 
-    return frame_start, frame_end, actions
+    return frames, actions
 
 
 if __name__ == "__main__":
-    frame_start, frame_end, actions = sequence()
-    torchvision.utils.save_image(frame_start, "world_start.png")
-    torchvision.utils.save_image(frame_end, "world_end.png")
+    frames, actions = sequence(nb_steps=31,all_frames=True)
+    frames = torch.cat(frames,0)
+    print(f"{frames.size()=}")
+    torchvision.utils.save_image(frames, "seq.png", nrow=8)
