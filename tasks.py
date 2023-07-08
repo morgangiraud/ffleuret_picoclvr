@@ -937,11 +937,12 @@ class Expr(Task):
                     input = self.tensorize(sequences)
 
             result = input.clone()
-            ar_mask = (result == self.space).long().cumsum(dim=1).clamp(max=1)
+            s = (result == self.space).long()
+            ar_mask = (s.cumsum(dim=1) - s).clamp(min=0, max=1)
             result = (1 - ar_mask) * result + ar_mask * self.filler
 
-            # for n in range(result.size(0)):
-            # logger(f"test_before {self.seq2str(result[n])}")
+            for n in range(result.size(0)):
+                logger(f"test_before {self.seq2str(result[n])}")
 
             masked_inplace_autoregression(
                 model,

@@ -24,7 +24,7 @@ def random_expr(variables, budget):
         else:
             return str(torch.randint(10, (1,)).item())
     else:
-        op = torch.randint(4, (1,)).item()
+        op = torch.randint(3, (1,)).item()
         if op == 0:
             e = random_expr(variables, budget - 2)
             if ("+" in e or "-" in e or "*" in e) and (e[0] != "(" or e[-1] != ")"):
@@ -38,8 +38,6 @@ def random_expr(variables, budget):
             if op == 1:
                 return e1 + "+" + e2
             elif op == 2:
-                return e1 + "+" + e2
-            elif op == 3:
                 return e1 + "*" + e2
 
 
