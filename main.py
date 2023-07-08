@@ -127,6 +127,8 @@ parser.add_argument("--expr_nb_variables", type=int, default=5)
 
 parser.add_argument("--expr_sequence_length", type=int, default=30)
 
+parser.add_argument("--expr_input_file", type=str, default=None)
+
 ######################################################################
 
 args = parser.parse_args()
@@ -363,6 +365,20 @@ else:
     except:
         log_string("error when loading the checkpoint.")
         exit(1)
+
+######################################################################
+
+if args.task == "expr" and args.expr_input_file is not None:
+    task.produce_results(
+        nb_epochs_finished,
+        model,
+        args.result_dir,
+        log_string,
+        args.deterministic_synthesis,
+        args.expr_input_file,
+    )
+
+    exit(0)
 
 ######################################################################
 

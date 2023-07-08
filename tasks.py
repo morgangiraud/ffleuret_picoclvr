@@ -776,6 +776,20 @@ import expr
 
 
 class Expr(Task):
+    def tensorize(self, sequences):
+        len_max = max([len(x) for x in sequences])
+        return torch.cat(
+            [
+                torch.tensor(
+                    [
+                        [self.char2id[c] for c in s + "#" * (len_max - len(s))]
+                        for s in sequences
+                    ]
+                )
+            ],
+            0,
+        ).to(self.device)
+
     def __init__(
         self,
         nb_train_samples,
@@ -800,43 +814,17 @@ class Expr(Task):
             nb_variables=nb_variables,
             length=sequence_length,
         )
-        self.char2id = dict(
-            [
-                (c, n)
-                for n, c in enumerate(
-                    set("#" + "".join(train_sequences + test_sequences))
-                )
-            ]
-        )
+
+        symbols = list(set("#" + "".join(train_sequences + test_sequences)))
+        symbols.sort()
+
+        self.char2id = dict([(c, n) for n, c in enumerate(symbols)])
         self.id2char = dict([(n, c) for c, n in self.char2id.items()])
 
         self.filler, self.space = self.char2id["#"], self.char2id[" "]
 
-        len_max = max([len(x) for x in train_sequences])
-        self.train_input = torch.cat(
-            [
-                torch.tensor(
-                    [
-                        [self.char2id[c] for c in s + "#" * (len_max - len(s))]
-                        for s in train_sequences
-                    ]
-                )
-            ],
-            0,
-        ).to(device)
-
-        len_max = max([len(x) for x in test_sequences])
-        self.test_input = torch.cat(
-            [
-                torch.tensor(
-                    [
-                        [self.char2id[c] for c in s + "#" * (len_max - len(s))]
-                        for s in test_sequences
-                    ]
-                )
-            ],
-            0,
-        ).to(device)
+        self.train_input = self.tensorize(train_sequences)
+        self.test_input = self.tensorize(test_sequences)
 
         self.nb_codes = max(self.train_input.max(), self.test_input.max()) + 1
 
@@ -862,7 +850,13 @@ class Expr(Task):
         return "".join([self.id2char[k.item()] for k in s])
 
     def produce_results(
-        self, n_epoch, model, result_dir, logger, deterministic_synthesis
+        self,
+        n_epoch,
+        model,
+        result_dir,
+        logger,
+        deterministic_synthesis,
+        input_file=None,
     ):
         with torch.autograd.no_grad():
             t = model.training
@@ -931,7 +925,14 @@ class Expr(Task):
 
             ##############################################################
             # Log a few generated sequences
-            input = self.test_input[:10]
+            if input_file is None:
+                input = self.test_input[:10]
+            else:
+                with open(input_file, "r") as f:
+                    sequences = [e.strip() for e in f.readlines()]
+                    sequences = [s + " " + "#" * 50 for s in sequences]
+                    input = self.tensorize(sequences)
+
             result = input.clone()
             ar_mask = (result == self.space).long().cumsum(dim=1).clamp(max=1)
             result = (1 - ar_mask) * result + ar_mask * self.filler
