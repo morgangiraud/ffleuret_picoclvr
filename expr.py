@@ -44,6 +44,7 @@ def random_expr(variables, budget):
 def generate_program(nb_variables, length):
     s = ""
     variables = set()
+    length = min(length, 1+torch.randint(length*2, (1,)).item())
     while len(s) < length:
         v = random_var(nb_variables=nb_variables)
         s += v + "=" + random_expr(variables, budget=20) + ";"
@@ -86,7 +87,7 @@ if __name__ == "__main__":
     import time
 
     start_time = time.perf_counter()
-    sequences = generate_sequences(1000, length=30)
+    sequences = generate_sequences(1000, length=40)
     end_time = time.perf_counter()
     for s in sequences[:10]:
         print(s)

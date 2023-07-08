@@ -125,7 +125,7 @@ parser.add_argument("--stack_fraction_values_for_train", type=float, default=0.7
 
 parser.add_argument("--expr_nb_variables", type=int, default=5)
 
-parser.add_argument("--expr_sequence_length", type=int, default=30)
+parser.add_argument("--expr_sequence_length", type=int, default=40)
 
 parser.add_argument("--expr_input_file", type=str, default=None)
 

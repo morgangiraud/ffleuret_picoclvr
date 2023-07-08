@@ -911,7 +911,7 @@ class Expr(Task):
                 test_nb_correct,
                 test_nb_delta,
                 test_nb_missed,
-            ) = compute_nb_correct(self.test_input[:1000])
+            ) = compute_nb_correct(self.test_input[:10000])
 
             logger(
                 f"accuracy_test {n_epoch} nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%"
