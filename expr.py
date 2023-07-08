@@ -48,7 +48,7 @@ def generate_program(nb_variables, length):
     # We take length itself half of the time, and uniform between 1
     # and length otherwise. The actual length can be slightly greater
 
-    length = min(length, 1+torch.randint(length*2, (1,)).item())
+    length = min(length, 1 + torch.randint(length * 2, (1,)).item())
     while len(s) < length:
         v = random_var(nb_variables=nb_variables)
         s += v + "=" + random_expr(variables, budget=20) + ";"
@@ -69,7 +69,7 @@ def extract_results(seq):
 def generate_sequences(nb, nb_variables=5, length=20):
     assert nb_variables <= 26
     sequences = []
-    result_max=99
+    result_max = 99
     for n in range(nb):
         result = None
         while result == None or max(result.values()) > result_max:
