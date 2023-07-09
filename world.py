@@ -67,7 +67,7 @@ def random_scene():
     colors = [
         (1.00, 0.00, 0.00),
         (0.00, 1.00, 0.00),
-        (0.00, 0.00, 1.00),
+        (0.60, 0.60, 1.00),
         (1.00, 1.00, 0.00),
         (0.75, 0.75, 0.75),
     ]
@@ -100,8 +100,7 @@ def sequence(nb_steps=10, all_frames=False):
     ]
 
     while True:
-
-        frames =[]
+        frames = []
 
         scene = random_scene()
         xh, yh = tuple(x.item() for x in torch.rand(2))
@@ -150,8 +149,111 @@ def sequence(nb_steps=10, all_frames=False):
     return frames, actions
 
 
+######################################################################
+
+
+# ||x_i - c_j||^2 = ||x_i||^2 + ||c_j||^2 - 2<x_i, c_j>
+def sq2matrix(x, c):
+    nx = x.pow(2).sum(1)
+    nc = c.pow(2).sum(1)
+    return nx[:, None] + nc[None, :] - 2 * x @ c.t()
+
+
+def update_centroids(x, c, nb_min=1):
+    _, b = sq2matrix(x, c).min(1)
+    b.squeeze_()
+    nb_resets = 0
+
+    for k in range(0, c.size(0)):
+        i = b.eq(k).nonzero(as_tuple=False).squeeze()
+        if i.numel() >= nb_min:
+            c[k] = x.index_select(0, i).mean(0)
+        else:
+            n = torch.randint(x.size(0), (1,))
+            nb_resets += 1
+            c[k] = x[n]
+
+    return c, b, nb_resets
+
+
+def kmeans(x, nb_centroids, nb_min=1):
+    if x.size(0) < nb_centroids * nb_min:
+        print("Not enough points!")
+        exit(1)
+
+    c = x[torch.randperm(x.size(0))[:nb_centroids]]
+    t = torch.full((x.size(0),), -1)
+    n = 0
+
+    while True:
+        c, u, nb_resets = update_centroids(x, c, nb_min)
+        n = n + 1
+        nb_changes = (u - t).sign().abs().sum() + nb_resets
+        t = u
+        if nb_changes == 0:
+            break
+
+    return c, t
+
+
+######################################################################
+
+
+def patchify(x, factor, invert_size=None):
+    if invert_size is None:
+        return (
+            x.reshape(
+                x.size(0), #0
+                x.size(1), #1
+                factor, #2
+                x.size(2) // factor,#3
+                factor,#4
+                x.size(3) // factor,#5
+            )
+            .permute(0, 2, 4, 1, 3, 5)
+            .reshape(-1, x.size(1), x.size(2) // factor, x.size(3) // factor)
+        )
+    else:
+        return (
+            x.reshape(
+                invert_size[0], #0
+                factor, #1
+                factor, #2
+                invert_size[1], #3
+                invert_size[2] // factor, #4
+                invert_size[3] // factor, #5
+            )
+            .permute(0, 3, 1, 4, 2, 5)
+            .reshape(invert_size)
+        )
+
+
 if __name__ == "__main__":
-    frames, actions = sequence(nb_steps=31,all_frames=True)
-    frames = torch.cat(frames,0)
-    print(f"{frames.size()=}")
-    torchvision.utils.save_image(frames, "seq.png", nrow=8)
+    import time
+
+    all_frames = []
+    nb = 1000
+    start_time = time.perf_counter()
+    for n in range(nb):
+        frames, actions = sequence(nb_steps=31)
+        all_frames += frames
+    end_time = time.perf_counter()
+    print(f"{nb / (end_time - start_time):.02f} samples per second")
+
+    input = torch.cat(all_frames, 0)
+    x = patchify(input, 8)
+    y = x.reshape(x.size(0), -1)
+    print(f"{x.size()=} {y.size()=}")
+    centroids, t = kmeans(y, 4096)
+    results = centroids[t]
+    results = results.reshape(x.size())
+    results = patchify(results, 8, input.size())
+
+    print(f"{input.size()=} {results.size()=}")
+
+    torchvision.utils.save_image(input[:64], "orig.png", nrow=8)
+    torchvision.utils.save_image(results[:64], "qtiz.png", nrow=8)
+
+    # frames, actions = sequence(nb_steps=31, all_frames=True)
+    # frames = torch.cat(frames, 0)
+    # torchvision.utils.save_image(frames, "seq.png", nrow=8)
