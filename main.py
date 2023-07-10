@@ -127,6 +127,10 @@ parser.add_argument("--expr_nb_variables", type=int, default=5)
 
 parser.add_argument("--expr_sequence_length", type=int, default=40)
 
+parser.add_argument("--expr_operand_max", type=int, default=9)
+
+parser.add_argument("--expr_result_max", type=int, default=99)
+
 parser.add_argument("--expr_input_file", type=str, default=None)
 
 ######################################################################
@@ -307,6 +311,8 @@ elif args.task == "expr":
         nb_test_samples=args.nb_test_samples,
         nb_variables=args.expr_nb_variables,
         sequence_length=args.expr_sequence_length,
+        operand_max=args.expr_operand_max,
+        result_max=args.expr_result_max,
         batch_size=args.batch_size,
         device=device,
     )
