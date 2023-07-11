@@ -880,17 +880,22 @@ class Expr(Task):
             values_input = expr.extract_results([self.seq2str(s) for s in input])
             values_result = expr.extract_results([self.seq2str(s) for s in result])
 
-            for i, r in zip(values_input, values_result):
-                for n, vi in i.items():
-                    vr = r.get(n)
-                    if vr is None or vr < 0:
-                        nb_missed += 1
-                    else:
-                        d = abs(vr - vi)
-                        if d >= nb_delta.size(0):
+            filename = os.path.join(result_dir, f"expr_result_{n_epoch:04d}.txt")
+
+            with open(filename, "w") as f:
+                for i, r in zip(values_input, values_result):
+                    for n, vi in i.items():
+                        vr = r.get(n)
+                        f.write(f"{vi} {-1 if vr is None else vr}\n")
+
+                        if vr is None or vr < 0:
                             nb_missed += 1
                         else:
-                            nb_delta[d] += 1
+                            d = abs(vr - vi)
+                            if d >= nb_delta.size(0):
+                                nb_missed += 1
+                            else:
+                                nb_delta[d] += 1
 
             ######################################################################
 
