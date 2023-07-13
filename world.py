@@ -10,6 +10,8 @@ import cairo
 
 
 class Box:
+    nb_rgb_levels = 10
+
     def __init__(self, x, y, w, h, r, g, b):
         self.x = x
         self.y = y
@@ -47,7 +49,12 @@ def scene2tensor(xh, yh, scene, size):
         ctx.rel_line_to(0, b.h * size)
         ctx.rel_line_to(-b.w * size, 0)
         ctx.close_path()
-        ctx.set_source_rgba(b.r, b.g, b.b, 1.0)
+        ctx.set_source_rgba(
+            b.r / (Box.nb_rgb_levels - 1),
+            b.g / (Box.nb_rgb_levels - 1),
+            b.b / (Box.nb_rgb_levels - 1),
+            1.0,
+        )
         ctx.fill()
 
     hs = size * 0.1
@@ -59,17 +66,28 @@ def scene2tensor(xh, yh, scene, size):
     ctx.close_path()
     ctx.fill()
 
-    return pixel_map[None, :, :, :3].flip(-1).permute(0, 3, 1, 2).float() / 255
+    return (
+        pixel_map[None, :, :, :3]
+        .flip(-1)
+        .permute(0, 3, 1, 2)
+        .long()
+        .mul(Box.nb_rgb_levels)
+        .floor_divide(256)
+    )
 
 
 def random_scene():
     scene = []
     colors = [
-        (1.00, 0.00, 0.00),
-        (0.00, 1.00, 0.00),
-        (0.60, 0.60, 1.00),
-        (1.00, 1.00, 0.00),
-        (0.75, 0.75, 0.75),
+        ((Box.nb_rgb_levels - 1), 0, 0),
+        (0, (Box.nb_rgb_levels - 1), 0),
+        (0, 0, (Box.nb_rgb_levels - 1)),
+        ((Box.nb_rgb_levels - 1), (Box.nb_rgb_levels - 1), 0),
+        (
+            (Box.nb_rgb_levels * 2) // 3,
+            (Box.nb_rgb_levels * 2) // 3,
+            (Box.nb_rgb_levels * 2) // 3,
+        ),
     ]
 
     for k in range(10):
@@ -85,7 +103,7 @@ def random_scene():
     return scene
 
 
-def generate_sequence(nb_steps=10, all_frames=False, size=64):
+def generate_episode(nb_steps=10, size=64):
     delta = 0.1
     effects = [
         (False, 0, 0),
@@ -137,10 +155,6 @@ def generate_sequence(nb_steps=10, all_frames=False, size=64):
                 if xh < 0 or xh > 1 or yh < 0 or yh > 1:
                     xh, yh = x, y
 
-            if all_frames:
-                frames.append(scene2tensor(xh, yh, scene, size=size))
-
-        if not all_frames:
             frames.append(scene2tensor(xh, yh, scene, size=size))
 
         if change:
@@ -231,8 +245,8 @@ def patchify(x, factor, invert_size=None):
 class Normalizer(nn.Module):
     def __init__(self, mu, std):
         super().__init__()
-        self.mu = nn.Parameter(mu)
-        self.log_var = nn.Parameter(2 * torch.log(std))
+        self.register_buffer("mu", mu)
+        self.register_buffer("log_var", 2 * torch.log(std))
 
     def forward(self, x):
         return (x - self.mu) / torch.exp(self.log_var / 2.0)
@@ -254,55 +268,68 @@ class SignSTE(nn.Module):
 
 def train_encoder(
     train_input,
-    dim_hidden=64,
-    block_size=16,
-    nb_bits_per_block=10,
+    test_input,
+    depth=2,
+    dim_hidden=48,
+    nb_bits_per_token=10,
     lr_start=1e-3,
-    lr_end=1e-5,
+    lr_end=1e-4,
     nb_epochs=10,
     batch_size=25,
     device=torch.device("cpu"),
 ):
-    mu, std = train_input.mean(), train_input.std()
+    mu, std = train_input.float().mean(), train_input.float().std()
+
+    def encoder_core(depth, dim):
+        l = [
+            [
+                nn.Conv2d(
+                    dim * 2**k, dim * 2**k, kernel_size=5, stride=1, padding=2
+                ),
+                nn.ReLU(),
+                nn.Conv2d(dim * 2**k, dim * 2 ** (k + 1), kernel_size=2, stride=2),
+                nn.ReLU(),
+            ]
+            for k in range(depth)
+        ]
+
+        return nn.Sequential(*[x for m in l for x in m])
+
+    def decoder_core(depth, dim):
+        l = [
+            [
+                nn.ConvTranspose2d(
+                    dim * 2 ** (k + 1), dim * 2**k, kernel_size=2, stride=2
+                ),
+                nn.ReLU(),
+                nn.ConvTranspose2d(
+                    dim * 2**k, dim * 2**k, kernel_size=5, stride=1, padding=2
+                ),
+                nn.ReLU(),
+            ]
+            for k in range(depth - 1, -1, -1)
+        ]
+
+        return nn.Sequential(*[x for m in l for x in m])
 
     encoder = nn.Sequential(
         Normalizer(mu, std),
-        nn.Conv2d(3, dim_hidden, kernel_size=5, stride=1, padding=2),
+        nn.Conv2d(3, dim_hidden, kernel_size=1, stride=1),
         nn.ReLU(),
-        nn.Conv2d(dim_hidden, dim_hidden, kernel_size=5, stride=1, padding=2),
-        nn.ReLU(),
-        nn.Conv2d(dim_hidden, dim_hidden, kernel_size=5, stride=1, padding=2),
-        nn.ReLU(),
-        nn.Conv2d(dim_hidden, dim_hidden, kernel_size=5, stride=1, padding=2),
-        nn.ReLU(),
-        nn.Conv2d(dim_hidden, dim_hidden, kernel_size=5, stride=1, padding=2),
-        nn.ReLU(),
-        nn.Conv2d(
-            dim_hidden,
-            nb_bits_per_block,
-            kernel_size=block_size,
-            stride=block_size,
-            padding=0,
-        ),
-        SignSTE(),
+        # 64x64
+        encoder_core(depth=depth, dim=dim_hidden),
+        # 8x8
+        nn.Conv2d(dim_hidden * 2**depth, nb_bits_per_token, kernel_size=1, stride=1),
     )
 
+    quantizer = SignSTE()
+
     decoder = nn.Sequential(
-        nn.ConvTranspose2d(
-            nb_bits_per_block,
-            dim_hidden,
-            kernel_size=block_size,
-            stride=block_size,
-            padding=0,
-        ),
-        nn.ReLU(),
-        nn.Conv2d(dim_hidden, dim_hidden, kernel_size=5, stride=1, padding=2),
-        nn.ReLU(),
-        nn.Conv2d(dim_hidden, dim_hidden, kernel_size=5, stride=1, padding=2),
-        nn.ReLU(),
-        nn.Conv2d(dim_hidden, dim_hidden, kernel_size=5, stride=1, padding=2),
-        nn.ReLU(),
-        nn.Conv2d(dim_hidden, 3, kernel_size=5, stride=1, padding=2),
+        nn.Conv2d(nb_bits_per_token, dim_hidden * 2**depth, kernel_size=1, stride=1),
+        # 8x8
+        decoder_core(depth=depth, dim=dim_hidden),
+        # 64x64
+        nn.ConvTranspose2d(dim_hidden, 3 * Box.nb_rgb_levels, kernel_size=1, stride=1),
     )
 
     model = nn.Sequential(encoder, decoder)
@@ -313,73 +340,120 @@ def train_encoder(
 
     model.to(device)
 
+    g5x5 = torch.exp(-torch.tensor([[-2.0, -1.0, 0.0, 1.0, 2.0]]) ** 2 / 2)
+    g5x5 = (g5x5.t() @ g5x5).view(1, 1, 5, 5)
+    g5x5 = g5x5 / g5x5.sum()
+
     for k in range(nb_epochs):
         lr = math.exp(
             math.log(lr_start) + math.log(lr_end / lr_start) / (nb_epochs - 1) * k
         )
-        print(f"lr {lr}")
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-        acc_loss, nb_samples = 0.0, 0
 
-        for input in tqdm.tqdm(
-            train_input.split(batch_size),
-            dynamic_ncols=True,
-            desc="vqae-train",
-            total=train_input.size(0) // batch_size,
-        ):
-            output = model(input)
-            loss = F.mse_loss(output, input)
-            acc_loss += loss.item() * input.size(0)
-            nb_samples += input.size(0)
+        acc_train_loss = 0.0
+
+        for input in train_input.split(batch_size):
+            z = encoder(input)
+            zq = z if k < 1 else quantizer(z)
+            output = decoder(zq)
+
+            output = output.reshape(
+                output.size(0), -1, 3, output.size(2), output.size(3)
+            )
+
+            train_loss = F.cross_entropy(output, input)
+
+            acc_train_loss += train_loss.item() * input.size(0)
 
             optimizer.zero_grad()
-            loss.backward()
+            train_loss.backward()
             optimizer.step()
 
-        print(f"loss {k} {acc_loss/nb_samples}")
+        acc_test_loss = 0.0
+
+        for input in test_input.split(batch_size):
+            z = encoder(input)
+            zq = z if k < 1 else quantizer(z)
+            output = decoder(zq)
+
+            output = output.reshape(
+                output.size(0), -1, 3, output.size(2), output.size(3)
+            )
+
+            test_loss = F.cross_entropy(output, input)
+
+            acc_test_loss += test_loss.item() * input.size(0)
+
+        train_loss = acc_train_loss / train_input.size(0)
+        test_loss = acc_test_loss / test_input.size(0)
+
+        print(f"train_ae {k} lr {lr} train_loss {train_loss} test_loss {test_loss}")
         sys.stdout.flush()
 
-    return encoder, decoder
+    return encoder, quantizer, decoder
+
+def generate_episodes(nb):
+    all_frames = []
+    for n in tqdm.tqdm(range(nb), dynamic_ncols=True, desc="world-data"):
+        frames, actions = generate_episode(nb_steps=31)
+        all_frames += [ frames[0], frames[-1] ]
+    return torch.cat(all_frames, 0).contiguous()
+
+def create_data_and_processors(nb_train_samples, nb_test_samples):
+    train_input = generate_episodes(nb_train_samples)
+    test_input = generate_episodes(nb_test_samples)
+    encoder, quantizer, decoder = train_encoder(train_input, test_input, nb_epochs=2)
+
+    input = test_input[:64]
+
+    z = encoder(input.float())
+    height, width = z.size(2), z.size(3)
+    zq = quantizer(z).long()
+    pow2=(2**torch.arange(zq.size(1), device=zq.device))[None,None,:]
+    seq = (zq.permute(0,2,3,1).clamp(min=0).reshape(zq.size(0),-1,zq.size(1)) * pow2).sum(-1)
+    print(f"{seq.size()=}")
+
+    ZZ=zq
+
+    zq = ((seq[:,:,None] // pow2)%2)*2-1
+    zq = zq.reshape(zq.size(0), height, width, -1).permute(0,3,1,2)
+
+    print(ZZ[0])
+    print(zq[0])
+
+    print("CHECK", (ZZ-zq).abs().sum())
+
+    results = decoder(zq.float())
+    T = 0.1
+    results = results.reshape(
+        results.size(0), -1, 3, results.size(2), results.size(3)
+    ).permute(0, 2, 3, 4, 1)
+    results = torch.distributions.categorical.Categorical(logits=results / T).sample()
+
+
+    torchvision.utils.save_image(
+        input.float() / (Box.nb_rgb_levels - 1), "orig.png", nrow=8
+    )
+
+    torchvision.utils.save_image(
+        results.float() / (Box.nb_rgb_levels - 1), "qtiz.png", nrow=8
+    )
 
 
 ######################################################################
 
 if __name__ == "__main__":
-    import time
+    create_data_and_processors(250,100)
 
-    all_frames = []
-    nb = 25000
-    start_time = time.perf_counter()
-    for n in tqdm.tqdm(
-        range(nb),
-        dynamic_ncols=True,
-        desc="world-data",
-    ):
-        frames, actions = generate_sequence(nb_steps=31)
-        all_frames += frames
-    end_time = time.perf_counter()
-    print(f"{nb / (end_time - start_time):.02f} samples per second")
+    # train_input = generate_episodes(2500)
+    # test_input = generate_episodes(1000)
 
-    input = torch.cat(all_frames, 0)
-    encoder, decoder = train_encoder(input)
+    # encoder, quantizer, decoder = train_encoder(train_input, test_input)
 
-    # x = patchify(input, 8)
-    # y = x.reshape(x.size(0), -1)
-    # print(f"{x.size()=} {y.size()=}")
-    # centroids, t = kmeans(y, 4096)
-    # results = centroids[t]
-    # results = results.reshape(x.size())
-    # results = patchify(results, 8, input.size())
+    # input = test_input[torch.randperm(test_input.size(0))[:64]]
+    # z = encoder(input.float())
+    # zq = quantizer(z)
+    # results = decoder(zq)
 
-    z = encoder(input)
-    results = decoder(z)
-
-    print(f"{input.size()=} {z.size()=} {results.size()=}")
-
-    torchvision.utils.save_image(input[:64], "orig.png", nrow=8)
-
-    torchvision.utils.save_image(results[:64], "qtiz.png", nrow=8)
-
-    # frames, actions = generate_sequence(nb_steps=31, all_frames=True)
-    # frames = torch.cat(frames, 0)
-    # torchvision.utils.save_image(frames, "seq.png", nrow=8)
+    # T = 0.1
+    # results = torch.distributions.categorical.Categorical(logits=results / T).sample()
