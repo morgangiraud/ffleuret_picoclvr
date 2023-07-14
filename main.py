@@ -35,7 +35,7 @@ parser.add_argument(
     "--task",
     type=str,
     default="picoclvr",
-    help="picoclvr, mnist, maze, snake, stack, expr",
+    help="picoclvr, mnist, maze, snake, stack, expr, world",
 )
 
 parser.add_argument("--log_filename", type=str, default="train.log", help=" ")
@@ -110,7 +110,7 @@ parser.add_argument("--snake_nb_colors", type=int, default=5)
 parser.add_argument("--snake_length", type=int, default=200)
 
 ##############################
-# Snake options
+# Stack options
 
 parser.add_argument("--stack_nb_steps", type=int, default=100)
 
@@ -180,6 +180,12 @@ default_args = {
         "batch_size": 25,
         "nb_train_samples": 1000000,
         "nb_test_samples": 10000,
+    },
+    "world": {
+        "nb_epochs": 5,
+        "batch_size": 25,
+        "nb_train_samples": 10000,
+        "nb_test_samples": 1000,
     },
 }
 
@@ -313,6 +319,14 @@ elif args.task == "expr":
         sequence_length=args.expr_sequence_length,
         operand_max=args.expr_operand_max,
         result_max=args.expr_result_max,
+        batch_size=args.batch_size,
+        device=device,
+    )
+
+elif args.task == "world":
+    task = tasks.World(
+        nb_train_samples=args.nb_train_samples,
+        nb_test_samples=args.nb_test_samples,
         batch_size=args.batch_size,
         device=device,
     )

@@ -322,17 +322,24 @@ def generate_episode(steps, size=64):
 
 
 def generate_episodes(nb, steps):
-    all_frames = []
+    all_frames, all_actions = [], []
     for n in tqdm.tqdm(range(nb), dynamic_ncols=True, desc="world-data"):
         frames, actions = generate_episode(steps)
         all_frames += frames
-    return torch.cat(all_frames, 0).contiguous()
+        all_actions += [actions]
+    return torch.cat(all_frames, 0).contiguous(), torch.cat(all_actions, 0)
 
 
-def create_data_and_processors(nb_train_samples, nb_test_samples, nb_epochs=10):
-    steps = [True] + [False] * 30 + [True]
-    train_input = generate_episodes(nb_train_samples, steps)
-    test_input = generate_episodes(nb_test_samples, steps)
+def create_data_and_processors(
+    nb_train_samples, nb_test_samples, mode, nb_steps, nb_epochs=10
+):
+    assert mode in ["first_last"]
+
+    if mode == "first_last":
+        steps = [True] + [False] * (nb_steps + 1) + [True]
+
+    train_input, train_actions = generate_episodes(nb_train_samples, steps)
+    test_input, test_actions = generate_episodes(nb_test_samples, steps)
 
     encoder, quantizer, decoder = train_encoder(
         train_input, test_input, nb_epochs=nb_epochs
@@ -380,15 +387,26 @@ def create_data_and_processors(nb_train_samples, nb_test_samples, nb_epochs=10):
 
         return torch.cat(frames, dim=0)
 
-    return train_input, test_input, frame2seq, seq2frame
+    return train_input, train_actions, test_input, test_actions, frame2seq, seq2frame
 
 
 ######################################################################
 
 if __name__ == "__main__":
-    train_input, test_input, frame2seq, seq2frame = create_data_and_processors(
+    (
+        train_input,
+        train_actions,
+        test_input,
+        test_actions,
+        frame2seq,
+        seq2frame,
+    ) = create_data_and_processors(
         # 10000, 1000,
-        100, 100, nb_epochs=2,
+        100,
+        100,
+        nb_epochs=2,
+        mode="first_last",
+        nb_steps=20,
     )
 
     input = test_input[:64]

@@ -590,8 +590,6 @@ class Snake(Task):
             )
             result *= 1 - ar_mask
 
-            # snake.solver(result,ar_mask)
-
             masked_inplace_autoregression(
                 model,
                 self.batch_size,
@@ -605,18 +603,7 @@ class Snake(Task):
 
             nb_correct = ((result == input).long() * (prior_visits > 0) * ar_mask).sum()
 
-            # nb_total = result.size(0)
-            # nb_correct = ((result - input).abs().sum(1) == 0).sum()
-
             return nb_total, nb_correct
-
-        # train_nb_total, train_nb_correct = compute_nb_correct(
-        # self.train_input, self.train_prior_visits
-        # )
-
-        # logger(
-        # f"accuracy_train nb_total {train_nb_total} nb_correct {train_nb_correct} accuracy {(100.0*train_nb_correct)/train_nb_total:.02f}%"
-        # )
 
         test_nb_total, test_nb_correct = compute_nb_correct(
             self.test_input[:1000], self.test_prior_visits[:1000]
@@ -954,6 +941,59 @@ class Expr(Task):
             logger(f"test_after  {self.seq2str(result[n])} {comment}")
             logger(f"truth       {self.seq2str(correct[n])}")
         ##############################################################
+
+
+######################################################################
+import world
+
+
+class World(Task):
+    def __init__(
+        self,
+        nb_train_samples,
+        nb_test_samples,
+        batch_size,
+        device=torch.device("cpu"),
+    ):
+        self.batch_size = batch_size
+        self.device = device
+
+        (
+            self.train_input,
+            self.train_actions,
+            self.test_input,
+            self.test_actions,
+            self.frame2seq,
+            self.seq2frame,
+        ) = world.create_data_and_processors(
+            nb_train_samples,
+            nb_test_samples,
+            mode="first_last",
+            nb_steps=30,
+            nb_epochs=2,
+        )
+
+        self.nb_codes = max(self.train_input.max(), self.test_input.max()) + 1
+
+    def batches(self, split="train", nb_to_use=-1, desc=None):
+        assert split in {"train", "test"}
+        input = self.train_input if split == "train" else self.test_input
+        if nb_to_use > 0:
+            input = input[:nb_to_use]
+        if desc is None:
+            desc = f"epoch-{split}"
+        for batch in tqdm.tqdm(
+            input.split(self.batch_size), dynamic_ncols=True, desc=desc
+        ):
+            yield batch
+
+    def vocabulary_size(self):
+        return self.nb_codes
+
+    def produce_results(
+        self, n_epoch, model, result_dir, logger, deterministic_synthesis
+    ):
+        pass
 
 
 ######################################################################
