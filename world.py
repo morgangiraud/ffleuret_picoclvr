@@ -8,6 +8,8 @@ from torch import nn
 from torch.nn import functional as F
 import cairo
 
+######################################################################
+
 
 class Box:
     nb_rgb_levels = 10
@@ -30,6 +32,160 @@ class Box:
             ):
                 return True
         return False
+
+
+######################################################################
+
+
+class Normalizer(nn.Module):
+    def __init__(self, mu, std):
+        super().__init__()
+        self.register_buffer("mu", mu)
+        self.register_buffer("log_var", 2 * torch.log(std))
+
+    def forward(self, x):
+        return (x - self.mu) / torch.exp(self.log_var / 2.0)
+
+
+class SignSTE(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        # torch.sign() takes three values
+        s = (x >= 0).float() * 2 - 1
+
+        if self.training:
+            u = torch.tanh(x)
+            return s + u - u.detach()
+        else:
+            return s
+
+
+def train_encoder(
+    train_input,
+    test_input,
+    depth=3,
+    dim_hidden=48,
+    nb_bits_per_token=8,
+    lr_start=1e-3,
+    lr_end=1e-4,
+    nb_epochs=10,
+    batch_size=25,
+    device=torch.device("cpu"),
+):
+    mu, std = train_input.float().mean(), train_input.float().std()
+
+    def encoder_core(depth, dim):
+        l = [
+            [
+                nn.Conv2d(
+                    dim * 2**k, dim * 2**k, kernel_size=5, stride=1, padding=2
+                ),
+                nn.ReLU(),
+                nn.Conv2d(dim * 2**k, dim * 2 ** (k + 1), kernel_size=2, stride=2),
+                nn.ReLU(),
+            ]
+            for k in range(depth)
+        ]
+
+        return nn.Sequential(*[x for m in l for x in m])
+
+    def decoder_core(depth, dim):
+        l = [
+            [
+                nn.ConvTranspose2d(
+                    dim * 2 ** (k + 1), dim * 2**k, kernel_size=2, stride=2
+                ),
+                nn.ReLU(),
+                nn.ConvTranspose2d(
+                    dim * 2**k, dim * 2**k, kernel_size=5, stride=1, padding=2
+                ),
+                nn.ReLU(),
+            ]
+            for k in range(depth - 1, -1, -1)
+        ]
+
+        return nn.Sequential(*[x for m in l for x in m])
+
+    encoder = nn.Sequential(
+        Normalizer(mu, std),
+        nn.Conv2d(3, dim_hidden, kernel_size=1, stride=1),
+        nn.ReLU(),
+        # 64x64
+        encoder_core(depth=depth, dim=dim_hidden),
+        # 8x8
+        nn.Conv2d(dim_hidden * 2**depth, nb_bits_per_token, kernel_size=1, stride=1),
+    )
+
+    quantizer = SignSTE()
+
+    decoder = nn.Sequential(
+        nn.Conv2d(nb_bits_per_token, dim_hidden * 2**depth, kernel_size=1, stride=1),
+        # 8x8
+        decoder_core(depth=depth, dim=dim_hidden),
+        # 64x64
+        nn.ConvTranspose2d(dim_hidden, 3 * Box.nb_rgb_levels, kernel_size=1, stride=1),
+    )
+
+    model = nn.Sequential(encoder, decoder)
+
+    nb_parameters = sum(p.numel() for p in model.parameters())
+
+    print(f"nb_parameters {nb_parameters}")
+
+    model.to(device)
+
+    for k in range(nb_epochs):
+        lr = math.exp(
+            math.log(lr_start) + math.log(lr_end / lr_start) / (nb_epochs - 1) * k
+        )
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+
+        acc_train_loss = 0.0
+
+        for input in tqdm.tqdm(train_input.split(batch_size), desc="vqae-train"):
+            z = encoder(input)
+            zq = z if k < 1 else quantizer(z)
+            output = decoder(zq)
+
+            output = output.reshape(
+                output.size(0), -1, 3, output.size(2), output.size(3)
+            )
+
+            train_loss = F.cross_entropy(output, input)
+
+            acc_train_loss += train_loss.item() * input.size(0)
+
+            optimizer.zero_grad()
+            train_loss.backward()
+            optimizer.step()
+
+        acc_test_loss = 0.0
+
+        for input in tqdm.tqdm(test_input.split(batch_size), desc="vqae-test"):
+            z = encoder(input)
+            zq = z if k < 1 else quantizer(z)
+            output = decoder(zq)
+
+            output = output.reshape(
+                output.size(0), -1, 3, output.size(2), output.size(3)
+            )
+
+            test_loss = F.cross_entropy(output, input)
+
+            acc_test_loss += test_loss.item() * input.size(0)
+
+        train_loss = acc_train_loss / train_input.size(0)
+        test_loss = acc_test_loss / test_input.size(0)
+
+        print(f"train_ae {k} lr {lr} train_loss {train_loss} test_loss {test_loss}")
+        sys.stdout.flush()
+
+    return encoder, quantizer, decoder
+
+
+######################################################################
 
 
 def scene2tensor(xh, yh, scene, size):
@@ -103,7 +259,7 @@ def random_scene():
     return scene
 
 
-def generate_episode(nb_steps=10, size=64):
+def generate_episode(steps, size=64):
     delta = 0.1
     effects = [
         (False, 0, 0),
@@ -123,12 +279,13 @@ def generate_episode(nb_steps=10, size=64):
         scene = random_scene()
         xh, yh = tuple(x.item() for x in torch.rand(2))
 
-        frames.append(scene2tensor(xh, yh, scene, size=size))
-
-        actions = torch.randint(len(effects), (nb_steps,))
+        actions = torch.randint(len(effects), (len(steps),))
         change = False
 
-        for a in actions:
+        for s, a in zip(steps, actions):
+            if s:
+                frames.append(scene2tensor(xh, yh, scene, size=size))
+
             g, dx, dy = effects[a]
             if g:
                 for b in scene:
@@ -154,8 +311,6 @@ def generate_episode(nb_steps=10, size=64):
                 yh += dy
                 if xh < 0 or xh > 1 or yh < 0 or yh > 1:
                     xh, yh = x, y
-
-            frames.append(scene2tensor(xh, yh, scene, size=size))
 
         if change:
             break
@@ -213,247 +368,75 @@ def kmeans(x, nb_centroids, nb_min=1):
 ######################################################################
 
 
-def patchify(x, factor, invert_size=None):
-    if invert_size is None:
-        return (
-            x.reshape(
-                x.size(0),  # 0
-                x.size(1),  # 1
-                factor,  # 2
-                x.size(2) // factor,  # 3
-                factor,  # 4
-                x.size(3) // factor,  # 5
-            )
-            .permute(0, 2, 4, 1, 3, 5)
-            .reshape(-1, x.size(1), x.size(2) // factor, x.size(3) // factor)
-        )
-    else:
-        return (
-            x.reshape(
-                invert_size[0],  # 0
-                factor,  # 1
-                factor,  # 2
-                invert_size[1],  # 3
-                invert_size[2] // factor,  # 4
-                invert_size[3] // factor,  # 5
-            )
-            .permute(0, 3, 1, 4, 2, 5)
-            .reshape(invert_size)
-        )
-
-
-class Normalizer(nn.Module):
-    def __init__(self, mu, std):
-        super().__init__()
-        self.register_buffer("mu", mu)
-        self.register_buffer("log_var", 2 * torch.log(std))
-
-    def forward(self, x):
-        return (x - self.mu) / torch.exp(self.log_var / 2.0)
-
-
-class SignSTE(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, x):
-        # torch.sign() takes three values
-        s = (x >= 0).float() * 2 - 1
-        if self.training:
-            u = torch.tanh(x)
-            return s + u - u.detach()
-        else:
-            return s
-
-
-def train_encoder(
-    train_input,
-    test_input,
-    depth=2,
-    dim_hidden=48,
-    nb_bits_per_token=10,
-    lr_start=1e-3,
-    lr_end=1e-4,
-    nb_epochs=10,
-    batch_size=25,
-    device=torch.device("cpu"),
-):
-    mu, std = train_input.float().mean(), train_input.float().std()
-
-    def encoder_core(depth, dim):
-        l = [
-            [
-                nn.Conv2d(
-                    dim * 2**k, dim * 2**k, kernel_size=5, stride=1, padding=2
-                ),
-                nn.ReLU(),
-                nn.Conv2d(dim * 2**k, dim * 2 ** (k + 1), kernel_size=2, stride=2),
-                nn.ReLU(),
-            ]
-            for k in range(depth)
-        ]
-
-        return nn.Sequential(*[x for m in l for x in m])
-
-    def decoder_core(depth, dim):
-        l = [
-            [
-                nn.ConvTranspose2d(
-                    dim * 2 ** (k + 1), dim * 2**k, kernel_size=2, stride=2
-                ),
-                nn.ReLU(),
-                nn.ConvTranspose2d(
-                    dim * 2**k, dim * 2**k, kernel_size=5, stride=1, padding=2
-                ),
-                nn.ReLU(),
-            ]
-            for k in range(depth - 1, -1, -1)
-        ]
-
-        return nn.Sequential(*[x for m in l for x in m])
-
-    encoder = nn.Sequential(
-        Normalizer(mu, std),
-        nn.Conv2d(3, dim_hidden, kernel_size=1, stride=1),
-        nn.ReLU(),
-        # 64x64
-        encoder_core(depth=depth, dim=dim_hidden),
-        # 8x8
-        nn.Conv2d(dim_hidden * 2**depth, nb_bits_per_token, kernel_size=1, stride=1),
-    )
-
-    quantizer = SignSTE()
-
-    decoder = nn.Sequential(
-        nn.Conv2d(nb_bits_per_token, dim_hidden * 2**depth, kernel_size=1, stride=1),
-        # 8x8
-        decoder_core(depth=depth, dim=dim_hidden),
-        # 64x64
-        nn.ConvTranspose2d(dim_hidden, 3 * Box.nb_rgb_levels, kernel_size=1, stride=1),
-    )
-
-    model = nn.Sequential(encoder, decoder)
-
-    nb_parameters = sum(p.numel() for p in model.parameters())
-
-    print(f"nb_parameters {nb_parameters}")
-
-    model.to(device)
-
-    g5x5 = torch.exp(-torch.tensor([[-2.0, -1.0, 0.0, 1.0, 2.0]]) ** 2 / 2)
-    g5x5 = (g5x5.t() @ g5x5).view(1, 1, 5, 5)
-    g5x5 = g5x5 / g5x5.sum()
-
-    for k in range(nb_epochs):
-        lr = math.exp(
-            math.log(lr_start) + math.log(lr_end / lr_start) / (nb_epochs - 1) * k
-        )
-        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-
-        acc_train_loss = 0.0
-
-        for input in train_input.split(batch_size):
-            z = encoder(input)
-            zq = z if k < 1 else quantizer(z)
-            output = decoder(zq)
-
-            output = output.reshape(
-                output.size(0), -1, 3, output.size(2), output.size(3)
-            )
-
-            train_loss = F.cross_entropy(output, input)
-
-            acc_train_loss += train_loss.item() * input.size(0)
-
-            optimizer.zero_grad()
-            train_loss.backward()
-            optimizer.step()
-
-        acc_test_loss = 0.0
-
-        for input in test_input.split(batch_size):
-            z = encoder(input)
-            zq = z if k < 1 else quantizer(z)
-            output = decoder(zq)
-
-            output = output.reshape(
-                output.size(0), -1, 3, output.size(2), output.size(3)
-            )
-
-            test_loss = F.cross_entropy(output, input)
-
-            acc_test_loss += test_loss.item() * input.size(0)
-
-        train_loss = acc_train_loss / train_input.size(0)
-        test_loss = acc_test_loss / test_input.size(0)
-
-        print(f"train_ae {k} lr {lr} train_loss {train_loss} test_loss {test_loss}")
-        sys.stdout.flush()
-
-    return encoder, quantizer, decoder
-
-def generate_episodes(nb):
+def generate_episodes(nb, steps):
     all_frames = []
     for n in tqdm.tqdm(range(nb), dynamic_ncols=True, desc="world-data"):
-        frames, actions = generate_episode(nb_steps=31)
-        all_frames += [ frames[0], frames[-1] ]
+        frames, actions = generate_episode(steps)
+        all_frames += frames
     return torch.cat(all_frames, 0).contiguous()
 
-def create_data_and_processors(nb_train_samples, nb_test_samples):
-    train_input = generate_episodes(nb_train_samples)
-    test_input = generate_episodes(nb_test_samples)
-    encoder, quantizer, decoder = train_encoder(train_input, test_input, nb_epochs=2)
+
+def create_data_and_processors(nb_train_samples, nb_test_samples, nb_epochs=10):
+    steps = [True] + [False] * 30 + [True]
+    train_input = generate_episodes(nb_train_samples, steps)
+    test_input = generate_episodes(nb_test_samples, steps)
+
+    print(f"{train_input.size()=} {test_input.size()=}")
+
+    encoder, quantizer, decoder = train_encoder(
+        train_input, test_input, nb_epochs=nb_epochs
+    )
+    encoder.train(False)
+    quantizer.train(False)
+    decoder.train(False)
+
+    z = encoder(train_input[:1])
+    pow2 = (2 ** torch.arange(z.size(1), device=z.device))[None, None, :]
+    z_h, z_w = z.size(2), z.size(3)
+
+    def frame2seq(x):
+        z = encoder(x)
+        ze_bool = (quantizer(z) >= 0).long()
+        seq = (
+            ze_bool.permute(0, 2, 3, 1).reshape(ze_bool.size(0), -1, ze_bool.size(1))
+            * pow2
+        ).sum(-1)
+        return seq
+
+    def seq2frame(seq, T=1e-2):
+        zd_bool = (seq[:, :, None] // pow2) % 2
+        zd_bool = zd_bool.reshape(zd_bool.size(0), z_h, z_w, -1).permute(0, 3, 1, 2)
+        logits = decoder(zd_bool * 2.0 - 1.0)
+        logits = logits.reshape(
+            logits.size(0), -1, 3, logits.size(2), logits.size(3)
+        ).permute(0, 2, 3, 4, 1)
+        results = torch.distributions.categorical.Categorical(
+            logits=logits / T
+        ).sample()
+        return results
+
+    return train_input, test_input, frame2seq, seq2frame
+
+
+######################################################################
+
+if __name__ == "__main__":
+    train_input, test_input, frame2seq, seq2frame = create_data_and_processors(
+        10000, 1000
+    )
 
     input = test_input[:64]
 
-    z = encoder(input.float())
-    height, width = z.size(2), z.size(3)
-    zq = quantizer(z).long()
-    pow2=(2**torch.arange(zq.size(1), device=zq.device))[None,None,:]
-    seq = (zq.permute(0,2,3,1).clamp(min=0).reshape(zq.size(0),-1,zq.size(1)) * pow2).sum(-1)
-    print(f"{seq.size()=}")
+    seq = frame2seq(input)
 
-    ZZ=zq
+    print(f"{seq.size()=} {seq.dtype=} {seq.min()=} {seq.max()=}")
 
-    zq = ((seq[:,:,None] // pow2)%2)*2-1
-    zq = zq.reshape(zq.size(0), height, width, -1).permute(0,3,1,2)
-
-    print(ZZ[0])
-    print(zq[0])
-
-    print("CHECK", (ZZ-zq).abs().sum())
-
-    results = decoder(zq.float())
-    T = 0.1
-    results = results.reshape(
-        results.size(0), -1, 3, results.size(2), results.size(3)
-    ).permute(0, 2, 3, 4, 1)
-    results = torch.distributions.categorical.Categorical(logits=results / T).sample()
-
+    output = seq2frame(seq)
 
     torchvision.utils.save_image(
         input.float() / (Box.nb_rgb_levels - 1), "orig.png", nrow=8
     )
 
     torchvision.utils.save_image(
-        results.float() / (Box.nb_rgb_levels - 1), "qtiz.png", nrow=8
+        output.float() / (Box.nb_rgb_levels - 1), "qtiz.png", nrow=8
     )
-
-
-######################################################################
-
-if __name__ == "__main__":
-    create_data_and_processors(250,100)
-
-    # train_input = generate_episodes(2500)
-    # test_input = generate_episodes(1000)
-
-    # encoder, quantizer, decoder = train_encoder(train_input, test_input)
-
-    # input = test_input[torch.randperm(test_input.size(0))[:64]]
-    # z = encoder(input.float())
-    # zq = quantizer(z)
-    # results = decoder(zq)
-
-    # T = 0.1
-    # results = torch.distributions.categorical.Categorical(logits=results / T).sample()
