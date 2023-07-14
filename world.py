@@ -321,53 +321,6 @@ def generate_episode(steps, size=64):
 ######################################################################
 
 
-# ||x_i - c_j||^2 = ||x_i||^2 + ||c_j||^2 - 2<x_i, c_j>
-def sq2matrix(x, c):
-    nx = x.pow(2).sum(1)
-    nc = c.pow(2).sum(1)
-    return nx[:, None] + nc[None, :] - 2 * x @ c.t()
-
-
-def update_centroids(x, c, nb_min=1):
-    _, b = sq2matrix(x, c).min(1)
-    b.squeeze_()
-    nb_resets = 0
-
-    for k in range(0, c.size(0)):
-        i = b.eq(k).nonzero(as_tuple=False).squeeze()
-        if i.numel() >= nb_min:
-            c[k] = x.index_select(0, i).mean(0)
-        else:
-            n = torch.randint(x.size(0), (1,))
-            nb_resets += 1
-            c[k] = x[n]
-
-    return c, b, nb_resets
-
-
-def kmeans(x, nb_centroids, nb_min=1):
-    if x.size(0) < nb_centroids * nb_min:
-        print("Not enough points!")
-        exit(1)
-
-    c = x[torch.randperm(x.size(0))[:nb_centroids]]
-    t = torch.full((x.size(0),), -1)
-    n = 0
-
-    while True:
-        c, u, nb_resets = update_centroids(x, c, nb_min)
-        n = n + 1
-        nb_changes = (u - t).sign().abs().sum() + nb_resets
-        t = u
-        if nb_changes == 0:
-            break
-
-    return c, t
-
-
-######################################################################
-
-
 def generate_episodes(nb, steps):
     all_frames = []
     for n in tqdm.tqdm(range(nb), dynamic_ncols=True, desc="world-data"):
