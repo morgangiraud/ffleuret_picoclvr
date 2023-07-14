@@ -388,9 +388,7 @@ def create_data_and_processors(nb_train_samples, nb_test_samples, nb_epochs=10):
 if __name__ == "__main__":
     train_input, test_input, frame2seq, seq2frame = create_data_and_processors(
         # 10000, 1000,
-        100,
-        100,
-        nb_epochs=2,
+        100, 100, nb_epochs=2,
     )
 
     input = test_input[:64]
