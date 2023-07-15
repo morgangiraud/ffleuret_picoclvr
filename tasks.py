@@ -29,7 +29,7 @@ def masked_inplace_autoregression(
             batches,
             dynamic_ncols=True,
             desc=progress_bar_desc,
-            #total=input.size(0) // batch_size,
+            # total=input.size(0) // batch_size,
         )
 
     with torch.autograd.no_grad():
@@ -957,6 +957,7 @@ class World(Task):
         nb_test_samples,
         batch_size,
         vqae_nb_epochs,
+        logger=None,
         device=torch.device("cpu"),
     ):
         self.batch_size = batch_size
@@ -964,9 +965,9 @@ class World(Task):
 
         (
             train_frames,
-            self.train_actions,
+            train_action_seq,
             test_frames,
-            self.test_actions,
+            test_action_seq,
             self.frame2seq,
             self.seq2frame,
         ) = world.create_data_and_processors(
@@ -975,15 +976,33 @@ class World(Task):
             mode="first_last",
             nb_steps=30,
             nb_epochs=vqae_nb_epochs,
+            logger=logger,
             device=device,
         )
 
-        self.train_input = self.frame2seq(train_frames)
-        self.train_input = self.train_input.reshape(self.train_input.size(0) // 2, -1)
-        self.test_input = self.frame2seq(test_frames)
-        self.test_input = self.test_input.reshape(self.test_input.size(0) // 2, -1)
+        print(f"{train_action_seq.size()=}")
 
-        self.nb_codes = max(self.train_input.max(), self.test_input.max()) + 1
+        train_frame_seq = self.frame2seq(train_frames)
+        test_frame_seq = self.frame2seq(test_frames)
+
+        nb_frame_codes = max(train_frame_seq.max(), test_frame_seq.max()) + 1
+        nb_action_codes = max(train_action_seq.max(), test_action_seq.max()) + 1
+
+        self.len_frame_seq = train_frame_seq.size(1)
+        self.len_action_seq = train_action_seq.size(1)
+        self.nb_codes = nb_frame_codes + nb_action_codes
+
+        train_frame_seq = train_frame_seq.reshape(train_frame_seq.size(0) // 2, 2, -1)
+        train_action_seq += nb_frame_codes
+        self.train_input = torch.cat(
+            (train_frame_seq[:, 0, :], train_action_seq, train_frame_seq[:, 1, :]), 1
+        )
+
+        test_frame_seq = test_frame_seq.reshape(test_frame_seq.size(0) // 2, 2, -1)
+        test_action_seq += nb_frame_codes
+        self.test_input = torch.cat(
+            (test_frame_seq[:, 0, :], test_action_seq, test_frame_seq[:, 1, :]), 1
+        )
 
     def batches(self, split="train", nb_to_use=-1, desc=None):
         assert split in {"train", "test"}
@@ -1003,11 +1022,16 @@ class World(Task):
     def produce_results(
         self, n_epoch, model, result_dir, logger, deterministic_synthesis
     ):
-        l = self.train_input.size(1)
-        k = torch.arange(l, device=self.device)[None, :]
-        result = self.test_input[:64].clone()
+        k = torch.arange(
+            2 * self.len_frame_seq + self.len_action_seq, device=self.device
+        )[None, :]
 
-        ar_mask = (k >= l // 2).long().expand_as(result)
+        input = self.test_input[:64]
+        result = input.clone()
+
+        ar_mask = (
+            (k >= self.len_frame_seq + self.len_action_seq).long().expand_as(result)
+        )
         result *= 1 - ar_mask
 
         masked_inplace_autoregression(
@@ -1019,14 +1043,22 @@ class World(Task):
             device=self.device,
         )
 
-        result = result.reshape(result.size(0) * 2, -1)
+        seq_start = input[:, : self.len_frame_seq]
+        seq_end = input[:, self.len_frame_seq + self.len_action_seq :]
+        seq_predicted = result[:, self.len_frame_seq + self.len_action_seq :]
+
+        result = torch.cat(
+            (seq_start[:, None, :], seq_end[:, None, :], seq_predicted[:, None, :]), 1
+        )
+        result = result.reshape(-1, result.size(-1))
+        print(f"{result.size()=}")
 
         frames = self.seq2frame(result)
         image_name = os.path.join(result_dir, f"world_result_{n_epoch:04d}.png")
         torchvision.utils.save_image(
             frames.float() / (world.Box.nb_rgb_levels - 1),
             image_name,
-            nrow=8,
+            nrow=12,
             padding=1,
             pad_value=0.0,
         )
