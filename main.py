@@ -133,6 +133,11 @@ parser.add_argument("--expr_result_max", type=int, default=99)
 
 parser.add_argument("--expr_input_file", type=str, default=None)
 
+##############################
+# World options
+
+parser.add_argument("--world_vqae_nb_epochs", type=int, default=10)
+
 ######################################################################
 
 args = parser.parse_args()
@@ -328,6 +333,7 @@ elif args.task == "world":
         nb_train_samples=args.nb_train_samples,
         nb_test_samples=args.nb_test_samples,
         batch_size=args.batch_size,
+        vqae_nb_epochs=args.world_vqae_nb_epochs,
         device=device,
     )
 

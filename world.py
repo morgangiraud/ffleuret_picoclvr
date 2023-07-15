@@ -65,7 +65,7 @@ class SignSTE(nn.Module):
 def train_encoder(
     train_input,
     test_input,
-    depth=3,
+    depth=2,
     dim_hidden=48,
     nb_bits_per_token=8,
     lr_start=1e-3,
@@ -331,7 +331,12 @@ def generate_episodes(nb, steps):
 
 
 def create_data_and_processors(
-    nb_train_samples, nb_test_samples, mode, nb_steps, nb_epochs=10
+    nb_train_samples,
+    nb_test_samples,
+    mode,
+    nb_steps,
+    nb_epochs=10,
+    device=torch.device("cpu"),
 ):
     assert mode in ["first_last"]
 
@@ -339,10 +344,12 @@ def create_data_and_processors(
         steps = [True] + [False] * (nb_steps + 1) + [True]
 
     train_input, train_actions = generate_episodes(nb_train_samples, steps)
+    train_input, train_actions = train_input.to(device), train_actions.to(device)
     test_input, test_actions = generate_episodes(nb_test_samples, steps)
+    test_input, test_actions = test_input.to(device), test_actions.to(device)
 
     encoder, quantizer, decoder = train_encoder(
-        train_input, test_input, nb_epochs=nb_epochs
+        train_input, test_input, nb_epochs=nb_epochs, device=device
     )
     encoder.train(False)
     quantizer.train(False)

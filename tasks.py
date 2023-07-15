@@ -20,6 +20,8 @@ def masked_inplace_autoregression(
     progress_bar_desc="autoregression",
     device=torch.device("cpu"),
 ):
+    assert input.size() == ar_mask.size()
+
     batches = zip(input.split(batch_size), ar_mask.split(batch_size))
 
     if progress_bar_desc is not None:
@@ -27,7 +29,7 @@ def masked_inplace_autoregression(
             batches,
             dynamic_ncols=True,
             desc=progress_bar_desc,
-            total=input.size(0) // batch_size,
+            #total=input.size(0) // batch_size,
         )
 
     with torch.autograd.no_grad():
@@ -944,6 +946,7 @@ class Expr(Task):
 
 
 ######################################################################
+
 import world
 
 
@@ -953,15 +956,16 @@ class World(Task):
         nb_train_samples,
         nb_test_samples,
         batch_size,
+        vqae_nb_epochs,
         device=torch.device("cpu"),
     ):
         self.batch_size = batch_size
         self.device = device
 
         (
-            self.train_input,
+            train_frames,
             self.train_actions,
-            self.test_input,
+            test_frames,
             self.test_actions,
             self.frame2seq,
             self.seq2frame,
@@ -970,8 +974,14 @@ class World(Task):
             nb_test_samples,
             mode="first_last",
             nb_steps=30,
-            nb_epochs=2,
+            nb_epochs=vqae_nb_epochs,
+            device=device,
         )
+
+        self.train_input = self.frame2seq(train_frames)
+        self.train_input = self.train_input.reshape(self.train_input.size(0) // 2, -1)
+        self.test_input = self.frame2seq(test_frames)
+        self.test_input = self.test_input.reshape(self.test_input.size(0) // 2, -1)
 
         self.nb_codes = max(self.train_input.max(), self.test_input.max()) + 1
 
@@ -993,7 +1003,34 @@ class World(Task):
     def produce_results(
         self, n_epoch, model, result_dir, logger, deterministic_synthesis
     ):
-        pass
+        l = self.train_input.size(1)
+        k = torch.arange(l, device=self.device)[None, :]
+        result = self.test_input[:64].clone()
+
+        ar_mask = (k >= l // 2).long().expand_as(result)
+        result *= 1 - ar_mask
+
+        masked_inplace_autoregression(
+            model,
+            self.batch_size,
+            result,
+            ar_mask,
+            deterministic_synthesis,
+            device=self.device,
+        )
+
+        result = result.reshape(result.size(0) * 2, -1)
+
+        frames = self.seq2frame(result)
+        image_name = os.path.join(result_dir, f"world_result_{n_epoch:04d}.png")
+        torchvision.utils.save_image(
+            frames.float() / (world.Box.nb_rgb_levels - 1),
+            image_name,
+            nrow=8,
+            padding=1,
+            pad_value=0.0,
+        )
+        logger(f"wrote {image_name}")
 
 
 ######################################################################
