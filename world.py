@@ -61,6 +61,19 @@ class SignSTE(nn.Module):
         else:
             return s
 
+class DiscreteSampler2d(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        s = (x >= x.max(-3,keepdim=True).values).float()
+
+        if self.training:
+            u = x.softmax(dim=-3)
+            return s + u - u.detach()
+        else:
+            return s
+
 
 def loss_H(binary_logits, h_threshold=1):
     p = binary_logits.sigmoid().mean(0)
@@ -159,7 +172,7 @@ def train_encoder(
         for input in tqdm.tqdm(train_input.split(batch_size), desc="vqae-train"):
             input = input.to(device)
             z = encoder(input)
-            zq = z if k < 2 else quantizer(z)
+            zq = quantizer(z)
             output = decoder(zq)
 
             output = output.reshape(
@@ -182,7 +195,7 @@ def train_encoder(
         for input in tqdm.tqdm(test_input.split(batch_size), desc="vqae-test"):
             input = input.to(device)
             z = encoder(input)
-            zq = z if k < 1 else quantizer(z)
+            zq = quantizer(z)
             output = decoder(zq)
 
             output = output.reshape(
@@ -440,7 +453,7 @@ if __name__ == "__main__":
         seq2frame,
     ) = create_data_and_processors(
         25000, 1000,
-        nb_epochs=10,
+        nb_epochs=5,
         mode="first_last",
         nb_steps=20,
     )
