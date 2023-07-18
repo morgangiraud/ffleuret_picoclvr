@@ -61,12 +61,13 @@ class SignSTE(nn.Module):
         else:
             return s
 
+
 class DiscreteSampler2d(nn.Module):
     def __init__(self):
         super().__init__()
 
     def forward(self, x):
-        s = (x >= x.max(-3,keepdim=True).values).float()
+        s = (x >= x.max(-3, keepdim=True).values).float()
 
         if self.training:
             u = x.softmax(dim=-3)
@@ -96,7 +97,6 @@ def train_encoder(
     logger=None,
     device=torch.device("cpu"),
 ):
-
     mu, std = train_input.float().mean(), train_input.float().std()
 
     def encoder_core(depth, dim):
@@ -459,7 +459,8 @@ if __name__ == "__main__":
         frame2seq,
         seq2frame,
     ) = create_data_and_processors(
-        25000, 1000,
+        25000,
+        1000,
         nb_epochs=5,
         mode="first_last",
         nb_steps=20,
