@@ -266,7 +266,8 @@ picoclvr_pruner_eval = (
 
 if args.task == "sandbox":
     task = tasks.SandBox(
-        tasks.ProblemByheart(),
+        tasks.ProblemLevel1(),
+        # tasks.ProblemAddition(zero_padded=False, inverted_result=False),
         nb_train_samples=args.nb_train_samples,
         nb_test_samples=args.nb_test_samples,
         batch_size=args.batch_size,
