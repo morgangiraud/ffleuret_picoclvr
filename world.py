@@ -96,8 +96,6 @@ def train_encoder(
     logger=None,
     device=torch.device("cpu"),
 ):
-    if logger is None:
-        logger = lambda s: print(s)
 
     mu, std = train_input.float().mean(), train_input.float().std()
 
@@ -157,7 +155,7 @@ def train_encoder(
 
     nb_parameters = sum(p.numel() for p in model.parameters())
 
-    logger(f"nb_parameters {nb_parameters}")
+    logger(f"vqae nb_parameters {nb_parameters}")
 
     model.to(device)
 
@@ -209,7 +207,7 @@ def train_encoder(
         train_loss = acc_train_loss / train_input.size(0)
         test_loss = acc_test_loss / test_input.size(0)
 
-        logger(f"train_ae {k} lr {lr} train_loss {train_loss} test_loss {test_loss}")
+        logger(f"vqae train {k} lr {lr} train_loss {train_loss} test_loss {test_loss}")
         sys.stdout.flush()
 
     return encoder, quantizer, decoder
@@ -378,6 +376,9 @@ def create_data_and_processors(
     if mode == "first_last":
         steps = [True] + [False] * (nb_steps + 1) + [True]
 
+    if logger is None:
+        logger = lambda s: print(s)
+
     train_input, train_actions = generate_episodes(nb_train_samples, steps)
     train_input, train_actions = train_input.to(device_storage), train_actions.to(
         device_storage
@@ -404,6 +405,8 @@ def create_data_and_processors(
     z = encoder(train_input[:1].to(device))
     pow2 = (2 ** torch.arange(z.size(1), device=device))[None, None, :]
     z_h, z_w = z.size(2), z.size(3)
+
+    logger(f"vqae input {train_input[0].size()} output {z[0].size()}")
 
     def frame2seq(input, batch_size=25):
         seq = []
