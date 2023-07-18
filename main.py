@@ -86,7 +86,7 @@ parser.add_argument("--sandbox_level", type=int, default=0)
 
 parser.add_argument("--sandbox_levels_nb_items", type=int, default=25)
 
-parser.add_argument("--sandbox_levels_len_source", type=int, default=5)
+parser.add_argument("--sandbox_levels_len_source", type=int, default=6)
 
 parser.add_argument("--sandbox_levels_len_result", type=int, default=8)
 
@@ -163,9 +163,9 @@ if args.result_dir is None:
 
 default_args = {
     "sandbox": {
-        "nb_epochs": 10,
+        "nb_epochs": 50,
         "batch_size": 25,
-        "nb_train_samples": 25000,
+        "nb_train_samples": 100000,
         "nb_test_samples": 10000,
     },
     "picoclvr": {
