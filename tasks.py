@@ -1052,6 +1052,10 @@ class RPL(Task):
         nb_train_samples,
         nb_test_samples,
         batch_size,
+        nb_starting_values=3,
+        max_input=9,
+        prog_len=6,
+        nb_runs=5,
         device=torch.device("cpu"),
     ):
         super().__init__()
@@ -1060,11 +1064,23 @@ class RPL(Task):
         self.device = device
 
         train_sequences = [
-            rpl.generate()
+            rpl.generate(
+                nb_starting_values=nb_starting_values,
+                max_input=max_input,
+                prog_len=prog_len,
+                nb_runs=nb_runs,
+            )
             for _ in tqdm.tqdm(range(nb_train_samples), desc="train-data")
         ]
+
         test_sequences = [
-            rpl.generate() for _ in tqdm.tqdm(range(nb_test_samples), desc="test-data")
+            rpl.generate(
+                nb_starting_values=nb_starting_values,
+                max_input=max_input,
+                prog_len=prog_len,
+                nb_runs=nb_runs,
+            )
+            for _ in tqdm.tqdm(range(nb_test_samples), desc="test-data")
         ]
 
         symbols = list(
@@ -1131,14 +1147,14 @@ class RPL(Task):
                     _, _, gt_prog, _ = rpl.compute_nb_errors(gt_seq)
                     gt_prog = " ".join([str(x) for x in gt_prog])
                     prog = " ".join([str(x) for x in prog])
-                    logger(f"GROUND-TRUTH PROG [{gt_prog}] PREDICTED PROG [{prog}]")
+                    logger(f"PROG [{gt_prog}] PREDICTED [{prog}]")
                     for start_stack, target_stack, result_stack, correct in stacks:
                         comment = " CORRECT" if correct else ""
                         start_stack = " ".join([str(x) for x in start_stack])
                         target_stack = " ".join([str(x) for x in target_stack])
                         result_stack = " ".join([str(x) for x in result_stack])
                         logger(
-                            f"  [{start_stack}] -> [{result_stack}] TARGET [{target_stack}]{comment}"
+                            f"  [{start_stack}] -> [{target_stack}] PREDICTED [{result_stack}]{comment}"
                         )
                     nb_to_log -= 1
 

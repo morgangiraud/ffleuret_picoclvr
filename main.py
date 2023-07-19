@@ -209,7 +209,7 @@ default_task_args = {
     "rpl": {
         "nb_epochs": 40,
         "batch_size": 25,
-        "nb_train_samples": 1000000,
+        "nb_train_samples": 100000,
         "nb_test_samples": 10000,
     },
     "world": {

@@ -53,13 +53,13 @@ rpl_ops = ["add", "min", "max", "swp", "rep", "dup", "del"]
 ######################################################################
 
 
-def generate(nb_values=3, max_input=9, prog_len=6, nb_runs=5):
-    prog_len = 1 + torch.randint(prog_len - 1, (1,)).item()
+def generate(nb_starting_values=3, max_input=9, prog_len=6, nb_runs=5):
+    prog_len = (1 + torch.randint(2 * prog_len, (1,))).clamp(max=prog_len).item()
     prog = [rpl_ops[k] for k in torch.randint(len(rpl_ops), (prog_len,))]
 
     result = []
     for _ in range(nb_runs):
-        stack = [x.item() for x in torch.randint(max_input + 1, (nb_values,))]
+        stack = [x.item() for x in torch.randint(max_input + 1, (nb_starting_values,))]
         result_stack = rpl_exec(prog, stack)
         result = result + ["<input>"] + stack + ["<output>"] + result_stack
 
