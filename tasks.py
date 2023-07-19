@@ -1044,6 +1044,9 @@ class RPL(Task):
             0,
         ).to(self.device)
 
+    def seq2str(self, seq):
+        return " ".join([self.id2token[i] for i in seq])
+
     def __init__(
         self,
         nb_train_samples,
@@ -1117,22 +1120,33 @@ class RPL(Task):
                 device=self.device,
             )
 
-            if nb_to_log > 0:
-                for x in result[:nb_to_log]:
-                    s = " ".join([self.id2token[i.item()] for i in x])
-                    logger(f"check {n_epoch} {s}")
-                nb_to_log -= min(nb_to_log, result.size(0))
-
             sum_nb_total, sum_nb_errors = 0, 0
-            for x in result:
-                seq = [self.id2token[i.item()] for i in x]
-                nb_total, nb_errors = rpl.check(seq)
-                sum_nb_total += nb_total
-                sum_nb_errors += nb_errors
+            for x, y in zip(input, result):
+                seq = [self.id2token[i.item()] for i in y]
+                nb_total, nb_errors, prog, stacks = rpl.compute_nb_errors(seq)
+                sum_nb_total += 1
+                sum_nb_errors += 0 if nb_errors == 0 else 1
+                if nb_to_log > 0:
+                    gt_seq = [self.id2token[i.item()] for i in x]
+                    _, _, gt_prog, _ = rpl.compute_nb_errors(gt_seq)
+                    gt_prog = " ".join([str(x) for x in gt_prog])
+                    prog = " ".join([str(x) for x in prog])
+                    logger(f"GROUND-TRUTH PROG [{gt_prog}] PREDICTED PROG [{prog}]")
+                    for start_stack, target_stack, result_stack, correct in stacks:
+                        comment = " CORRECT" if correct else ""
+                        start_stack = " ".join([str(x) for x in start_stack])
+                        target_stack = " ".join([str(x) for x in target_stack])
+                        result_stack = " ".join([str(x) for x in result_stack])
+                        logger(
+                            f"  [{start_stack}] -> [{result_stack}] TARGET [{target_stack}]{comment}"
+                        )
+                    nb_to_log -= 1
 
             return sum_nb_total, sum_nb_errors
 
-        test_nb_total, test_nb_errors = compute_nb_errors(self.test_input, nb_to_log=10)
+        test_nb_total, test_nb_errors = compute_nb_errors(
+            self.test_input[:1000], nb_to_log=10
+        )
 
         logger(
             f"accuracy_test {n_epoch} nb_total {test_nb_total} nb_errors {test_nb_errors} accuracy {100.0*(1-test_nb_errors/test_nb_total):.02f}%"
