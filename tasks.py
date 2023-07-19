@@ -1023,6 +1023,124 @@ class Stack(Task):
 
 ######################################################################
 
+import rpl
+
+
+class RPL(Task):
+    def tensorize(self, sequences):
+        len_max = max([len(x) for x in sequences])
+        return torch.cat(
+            [
+                torch.tensor(
+                    [
+                        [
+                            self.token2id[str(c)]
+                            for c in s + ["<nul>"] * (len_max - len(s))
+                        ]
+                        for s in sequences
+                    ]
+                )
+            ],
+            0,
+        ).to(self.device)
+
+    def __init__(
+        self,
+        nb_train_samples,
+        nb_test_samples,
+        batch_size,
+        device=torch.device("cpu"),
+    ):
+        super().__init__()
+
+        self.batch_size = batch_size
+        self.device = device
+
+        train_sequences = [
+            rpl.generate()
+            for _ in tqdm.tqdm(range(nb_train_samples), desc="train-data")
+        ]
+        test_sequences = [
+            rpl.generate() for _ in tqdm.tqdm(range(nb_test_samples), desc="test-data")
+        ]
+
+        symbols = list(
+            set(["<nul>"] + [x for l in train_sequences + test_sequences for x in l])
+        )
+        val_max = max([x if type(x) is int else 0 for x in symbols])
+        symbols = list(filter(lambda x: type(x) is str, symbols))
+        symbols.sort()
+        symbols += [str(n) for n in range(val_max + 1)]
+        print(f"{val_max=}")
+        self.token2id = dict([(c, n) for n, c in enumerate(symbols)])
+        self.id2token = dict([(n, c) for c, n in self.token2id.items()])
+
+        self.t_nul, self.t_prog = self.token2id["<nul>"], self.token2id["<prog>"]
+
+        self.train_input = self.tensorize(train_sequences)
+        self.test_input = self.tensorize(test_sequences)
+
+        self.nb_codes = max(self.train_input.max(), self.test_input.max()) + 1
+
+    def batches(self, split="train", nb_to_use=-1, desc=None):
+        assert split in {"train", "test"}
+        input = self.train_input if split == "train" else self.test_input
+        if nb_to_use > 0:
+            input = input[:nb_to_use]
+        if desc is None:
+            desc = f"epoch-{split}"
+        for batch in tqdm.tqdm(
+            input.split(self.batch_size), dynamic_ncols=True, desc=desc
+        ):
+            last = (batch != self.t_nul).max(0).values.nonzero().max() + 3
+            batch = batch[:, :last]
+            yield batch
+
+    def vocabulary_size(self):
+        return self.nb_codes
+
+    def produce_results(
+        self, n_epoch, model, result_dir, logger, deterministic_synthesis
+    ):
+        def compute_nb_errors(input, nb_to_log=0):
+            result = input.clone()
+            s = (result == self.t_prog).long()
+            ar_mask = (s.cumsum(dim=1) - s).clamp(min=0, max=1)
+            result = (1 - ar_mask) * result + ar_mask * self.t_nul
+
+            masked_inplace_autoregression(
+                model,
+                self.batch_size,
+                result,
+                ar_mask,
+                deterministic_synthesis,
+                device=self.device,
+            )
+
+            if nb_to_log > 0:
+                for x in result[:nb_to_log]:
+                    s = " ".join([self.id2token[i.item()] for i in x])
+                    logger(f"check {n_epoch} {s}")
+                nb_to_log -= min(nb_to_log, result.size(0))
+
+            sum_nb_total, sum_nb_errors = 0, 0
+            for x in result:
+                seq = [self.id2token[i.item()] for i in x]
+                nb_total, nb_errors = rpl.check(seq)
+                sum_nb_total += nb_total
+                sum_nb_errors += nb_errors
+
+            return sum_nb_total, sum_nb_errors
+
+        test_nb_total, test_nb_errors = compute_nb_errors(self.test_input, nb_to_log=10)
+
+        logger(
+            f"accuracy_test {n_epoch} nb_total {test_nb_total} nb_errors {test_nb_errors} accuracy {100.0*(1-test_nb_errors/test_nb_total):.02f}%"
+        )
+
+
+######################################################################
+
 
 import expr
 

@@ -36,7 +36,7 @@ parser.add_argument(
     "--task",
     type=str,
     default="sandbox",
-    help="sandbox, picoclvr, mnist, maze, snake, stack, expr, world",
+    help="sandbox, picoclvr, mnist, maze, snake, stack, expr, rpl, world",
 )
 
 parser.add_argument("--log_filename", type=str, default="train.log", help=" ")
@@ -201,6 +201,12 @@ default_task_args = {
         "nb_test_samples": 1000,
     },
     "expr": {
+        "nb_epochs": 40,
+        "batch_size": 25,
+        "nb_train_samples": 1000000,
+        "nb_test_samples": 10000,
+    },
+    "rpl": {
         "nb_epochs": 40,
         "batch_size": 25,
         "nb_train_samples": 1000000,
@@ -415,6 +421,14 @@ elif args.task == "expr":
         sequence_length=args.expr_sequence_length,
         operand_max=args.expr_operand_max,
         result_max=args.expr_result_max,
+        batch_size=args.batch_size,
+        device=device,
+    )
+
+elif args.task == "rpl":
+    task = tasks.RPL(
+        nb_train_samples=args.nb_train_samples,
+        nb_test_samples=args.nb_test_samples,
         batch_size=args.batch_size,
         device=device,
     )
