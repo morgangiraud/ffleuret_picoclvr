@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+# Any copyright is dedicated to the Public Domain.
+# https://creativecommons.org/publicdomain/zero/1.0/
+
+# Written by Francois Fleuret <francois@fleuret.org>
+
 import math, os, tqdm
 
 import torch, torchvision
@@ -108,9 +113,7 @@ class ProblemLevel1(Problem):
         source = torch.rand(nb, 10).sort(dim=1).indices[:, : self.len_source]
         marker2 = torch.full((nb, 1), 11)
         result = operators.bmm(source[:, :, None]).squeeze(-1)
-        print(f"{nb_operators.dtype=} {marker1.dtype=}")
         sequences = torch.cat((nb_operators, marker1, source, marker2, result), 1)
-        print(f"{sequences.size()=}")
         ar_mask = (sequences == 11).long()
         ar_mask = (ar_mask.cumsum(1) - ar_mask).clamp(max=1)
         return sequences, ar_mask
@@ -1091,7 +1094,6 @@ class RPL(Task):
         symbols = list(filter(lambda x: type(x) is str, symbols))
         symbols.sort()
         symbols += [str(n) for n in range(val_max + 1)]
-        print(f"{val_max=}")
         self.token2id = dict([(c, n) for n, c in enumerate(symbols)])
         self.id2token = dict([(n, c) for c, n in self.token2id.items()])
 
@@ -1101,6 +1103,7 @@ class RPL(Task):
         self.test_input = self.tensorize(test_sequences)
 
         if logger is not None:
+            logger(f"value_max {val_max}")
             for x in self.train_input[:25]:
                 end = (x != self.t_nul).nonzero().max().item() + 1
                 seq = [self.id2token[i.item()] for i in x[:end]]

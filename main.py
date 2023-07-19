@@ -5,9 +5,6 @@
 
 # Written by Francois Fleuret <francois@fleuret.org>
 
-# torch.backends.cuda.matmul.allow_tf23
-# torch.autocast(torch.bfloat16)
-
 import math, sys, argparse, time, tqdm, os
 
 import torch, torchvision
