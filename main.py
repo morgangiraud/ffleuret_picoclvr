@@ -430,6 +430,7 @@ elif args.task == "rpl":
         nb_train_samples=args.nb_train_samples,
         nb_test_samples=args.nb_test_samples,
         batch_size=args.batch_size,
+        logger=log_string,
         device=device,
     )
 

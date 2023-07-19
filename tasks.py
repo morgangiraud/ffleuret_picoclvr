@@ -1056,6 +1056,7 @@ class RPL(Task):
         max_input=9,
         prog_len=6,
         nb_runs=5,
+        logger=None,
         device=torch.device("cpu"),
     ):
         super().__init__()
@@ -1098,6 +1099,13 @@ class RPL(Task):
 
         self.train_input = self.tensorize(train_sequences)
         self.test_input = self.tensorize(test_sequences)
+
+        if logger is not None:
+            for x in self.train_input[:10]:
+                end = (x != self.t_nul).nonzero().max().item() + 1
+                seq = [self.id2token[i.item()] for i in x[:end]]
+                s = " ".join(seq)
+                logger(f"example_seq {s}")
 
         self.nb_codes = max(self.train_input.max(), self.test_input.max()) + 1
 
@@ -1147,14 +1155,15 @@ class RPL(Task):
                     _, _, gt_prog, _ = rpl.compute_nb_errors(gt_seq)
                     gt_prog = " ".join([str(x) for x in gt_prog])
                     prog = " ".join([str(x) for x in prog])
-                    logger(f"PROG [{gt_prog}] PREDICTED [{prog}]")
+                    comment = "*" if nb_errors == 0 else "-"
+                    logger(f"{comment} PROG [{gt_prog}] PREDICTED [{prog}]")
                     for start_stack, target_stack, result_stack, correct in stacks:
-                        comment = " CORRECT" if correct else ""
+                        comment = "*" if correct else "-"
                         start_stack = " ".join([str(x) for x in start_stack])
                         target_stack = " ".join([str(x) for x in target_stack])
                         result_stack = " ".join([str(x) for x in result_stack])
                         logger(
-                            f"  [{start_stack}] -> [{target_stack}] PREDICTED [{result_stack}]{comment}"
+                            f"  {comment} [{start_stack}] -> [{target_stack}] PREDICTED [{result_stack}]"
                         )
                     nb_to_log -= 1
 

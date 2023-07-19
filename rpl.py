@@ -55,16 +55,26 @@ rpl_ops = ["add", "min", "max", "swp", "rep", "dup", "del"]
 
 def generate(nb_starting_values=3, max_input=9, prog_len=6, nb_runs=5):
     prog_len = (1 + torch.randint(2 * prog_len, (1,))).clamp(max=prog_len).item()
-    prog = [rpl_ops[k] for k in torch.randint(len(rpl_ops), (prog_len,))]
 
-    result = []
-    for _ in range(nb_runs):
-        stack = [x.item() for x in torch.randint(max_input + 1, (nb_starting_values,))]
-        result_stack = rpl_exec(prog, stack)
-        result = result + ["<input>"] + stack + ["<output>"] + result_stack
+    while True:
+        no_empty_stack = True
+        prog = [rpl_ops[k] for k in torch.randint(len(rpl_ops), (prog_len,))]
 
-    result = result + ["<prog>"] + prog
-    result = result + ["<end>"]
+        result = []
+        for _ in range(nb_runs):
+            stack = [
+                x.item() for x in torch.randint(max_input + 1, (nb_starting_values,))
+            ]
+            result_stack = rpl_exec(prog, stack)
+            if len(result_stack) == 0:
+                no_empty_stack = False
+            result = result + ["<input>"] + stack + ["<output>"] + result_stack
+
+        result = result + ["<prog>"] + prog
+        result = result + ["<end>"]
+        if no_empty_stack:
+            break
+
     return result
 
 
@@ -116,7 +126,7 @@ def compute_nb_errors(seq):
     if len(set(prog) - set(rpl_ops)) > 0:
         # Program is not valid, we count 100% error
         for start_stack, target_stack in io:
-            stacks.append((start_stack, target_stack, "N/A", False))
+            stacks.append((start_stack, target_stack, ["N/A"], False))
             nb_total += len(target_stack)
             nb_errors += len(target_stack)
 
