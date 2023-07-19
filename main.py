@@ -59,15 +59,17 @@ parser.add_argument("--learning_rate", type=float, default=1e-4)
 
 parser.add_argument("--learning_rate_schedule", type=str, default="10: 2e-5,30: 4e-6")
 
-parser.add_argument("--dim_model", type=int, default=512)
+parser.add_argument("--model", type=str, default="37M")
 
-parser.add_argument("--dim_keys", type=int, default=64)
+parser.add_argument("--dim_model", type=int, default=None)
 
-parser.add_argument("--dim_hidden", type=int, default=2048)
+parser.add_argument("--dim_keys", type=int, default=None)
 
-parser.add_argument("--nb_heads", type=int, default=8)
+parser.add_argument("--dim_hidden", type=int, default=None)
 
-parser.add_argument("--nb_blocks", type=int, default=12)
+parser.add_argument("--nb_heads", type=int, default=None)
+
+parser.add_argument("--nb_blocks", type=int, default=None)
 
 parser.add_argument("--dropout", type=float, default=0.1)
 
@@ -161,7 +163,7 @@ if args.result_dir is None:
 
 ######################################################################
 
-default_args = {
+default_task_args = {
     "sandbox": {
         "nb_epochs": 50,
         "batch_size": 25,
@@ -212,10 +214,50 @@ default_args = {
     },
 }
 
-if args.task in default_args:
-    for k, v in default_args[args.task].items():
+if args.task in default_task_args:
+    for k, v in default_task_args[args.task].items():
         if getattr(args, k) is None:
             setattr(args, k, v)
+
+######################################################################
+
+default_model_args = {
+    "17K": {
+        "dim_model": 32,
+        "dim_keys": 32,
+        "dim_hidden": 32,
+        "nb_heads": 2,
+        "nb_blocks": 2,
+    },
+    "37M": {
+        "dim_model": 512,
+        "dim_keys": 64,
+        "dim_hidden": 2048,
+        "nb_heads": 8,
+        "nb_blocks": 12,
+    },
+    "122M": {
+        "dim_model": 768,
+        "dim_keys": 64,
+        "dim_hidden": 2048,
+        "nb_heads": 8,
+        "nb_blocks": 24,
+    },
+    "352M": {
+        "dim_model": 1024,
+        "dim_keys": 64,
+        "dim_hidden": 2048,
+        "nb_heads": 8,
+        "nb_blocks": 48,
+    },
+}
+
+if args.model in default_model_args:
+    for k, v in default_model_args[args.model].items():
+        if getattr(args, k) is None:
+            setattr(args, k, v)
+else:
+    raise ValueError(f"Unknown model {args.model}")
 
 ######################################################################
 
