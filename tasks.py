@@ -1179,9 +1179,9 @@ class RPL(Task):
         # --------------------------------------------------------------------
         def compute_nb_errors_output(input, nb_to_log=0):
             result = input.clone()
-            k = torch.arange(result.size(1), device=result.device)[None,:]
-            last_output_idx = ((result == self.t_output) * k).max(dim=1,keep_dim=True)
-            first_prog_idx = ((result == self.t_prog) * k).min(dim=1,keep_dim=True)
+            k = torch.arange(result.size(1), device=result.device)[None, :]
+            last_output_idx = ((result == self.t_output) * k).max(dim=1, keep_dim=True)
+            first_prog_idx = ((result == self.t_prog) * k).min(dim=1, keep_dim=True)
             ar_mask = (k > last_output_idx).long() * (k < first_prog_idx)
             result = (1 - ar_mask) * result + ar_mask * self.t_nul
 
@@ -1198,7 +1198,7 @@ class RPL(Task):
             for x, y in zip(input, result):
                 seq = [self.id2token[i.item()] for i in y]
                 sum_nb_total += 1
-                sum_nb_errors += 0 if (x-y).abs().max() == 0 else 1
+                sum_nb_errors += 0 if (x - y).abs().max() == 0 else 1
                 if nb_to_log > 0:
                     gt_seq = [self.id2token[i.item()] for i in x]
                     _, _, gt_prog, _ = rpl.compute_nb_errors(gt_seq)
