@@ -107,13 +107,17 @@ def decompose(seq):
         o = next_marker(seq, ["<output>"], start=k + 1)
         e = next_marker(seq, ["<input>", "<prog>"], start=o)
         if o is None or e is None:
-            raise ValueError("Invalid input/output")
+            raise ValueError(
+                "Missing input/output markers (should be correct in the prompt)"
+            )
         try:
             io.append(
                 ([int(x) for x in seq[k + 1 : o]], [int(x) for x in seq[o + 1 : e]])
             )
         except ValueError:
-            raise ValueError("Invalid input/output")
+            raise ValueError(
+                "Invalid input/output value (should be correct in the prompt)"
+            )
 
         k = e
 
@@ -123,6 +127,9 @@ def decompose(seq):
             prog = []
         else:
             prog = seq[k + 1 : e]
+    else:
+        raise ValueError("Missing <prog> (it should be in the prompt)")
+
     return prog, io
 
 
