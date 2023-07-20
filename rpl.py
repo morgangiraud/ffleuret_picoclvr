@@ -105,8 +105,10 @@ def decompose(seq):
     k = 0
     while seq[k] == "<input>":
         o = next_marker(seq, ["<output>"], start=k + 1)
+        if o is None:
+            raise ValueError("Missing output markers (should be correct in the prompt)")
         e = next_marker(seq, ["<input>", "<prog>"], start=o)
-        if o is None or e is None:
+        if e is None:
             raise ValueError(
                 "Missing input/output markers (should be correct in the prompt)"
             )
@@ -133,6 +135,12 @@ def decompose(seq):
     return prog, io
 
 
+def stack_distance(target_stack, result_stack):
+    return abs(len(result_stack) - len(target_stack)) + sum(
+        [0 if x == y else 1 for x, y in zip(result_stack, target_stack)]
+    )
+
+
 def compute_nb_errors(seq):
     prog, io = decompose(seq)
 
@@ -152,9 +160,7 @@ def compute_nb_errors(seq):
         for start_stack, target_stack in io:
             result_stack = rpl_exec(prog, start_stack)
             nb_total += len(target_stack)
-            e = abs(len(result_stack) - len(target_stack)) + sum(
-                [0 if x == y else 1 for x, y in zip(result_stack, target_stack)]
-            )
+            e = stack_distance(target_stack, result_stack)
             nb_errors += e
             stacks.append((start_stack, target_stack, result_stack, e == 0))
 
