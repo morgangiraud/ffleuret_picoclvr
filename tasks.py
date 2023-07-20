@@ -1059,6 +1059,7 @@ class RPL(Task):
         max_input=9,
         prog_len=6,
         nb_runs=5,
+        no_prog=False,
         logger=None,
         device=torch.device("cpu"),
     ):
@@ -1066,6 +1067,7 @@ class RPL(Task):
 
         self.batch_size = batch_size
         self.device = device
+        self.no_prog = no_prog
 
         train_sequences = [
             rpl.generate(
@@ -1100,12 +1102,41 @@ class RPL(Task):
         self.id2token = dict([(n, c) for c, n in self.token2id.items()])
 
         self.t_nul = self.token2id["<nul>"]
-        self.t_prog = self.token2id["<prog>"]
         self.t_input = self.token2id["<input>"]
         self.t_output = self.token2id["<output>"]
+        self.t_prog = self.token2id["<prog>"]
+        self.t_end = self.token2id["<end>"]
 
         self.train_input = self.tensorize(train_sequences)
         self.test_input = self.tensorize(test_sequences)
+
+        if no_prog:
+            k = torch.arange(self.train_input.size(1), device=self.train_input.device)[
+                None, :
+            ]
+            p = (
+                ((self.train_input == self.t_prog).long() * k)
+                .max(1, keepdim=True)
+                .values
+            )
+            self.train_input = (
+                self.train_input * (k <= p).long()
+                + self.t_end * (k == p + 1).long()
+                + self.t_nul * (k > p + 1).long()
+            )
+            k = torch.arange(self.test_input.size(1), device=self.test_input.device)[
+                None, :
+            ]
+            p = (
+                ((self.test_input == self.t_prog).long() * k)
+                .max(1, keepdim=True)
+                .values
+            )
+            self.test_input = (
+                self.test_input * (k <= p).long()
+                + self.t_end * (k == p + 1).long()
+                + self.t_nul * (k > p + 1).long()
+            )
 
         if logger is not None:
             logger(f"value_max {val_max}")
@@ -1221,13 +1252,14 @@ class RPL(Task):
 
         # --------------------------------------------------------------------
 
-        test_nb_total, test_nb_errors = compute_nb_errors_prog(
-            self.test_input[:1000].to(self.device), nb_to_log=10
-        )
+        if not self.no_prog:
+            test_nb_total, test_nb_errors = compute_nb_errors_prog(
+                self.test_input[:1000].to(self.device), nb_to_log=10
+            )
 
-        logger(
-            f"accuracy_prog_test {n_epoch} nb_total {test_nb_total} nb_errors {test_nb_errors} accuracy {100.0*(1-test_nb_errors/test_nb_total):.02f}%"
-        )
+            logger(
+                f"accuracy_prog_test {n_epoch} nb_total {test_nb_total} nb_errors {test_nb_errors} accuracy {100.0*(1-test_nb_errors/test_nb_total):.02f}%"
+            )
 
         test_nb_total, test_nb_errors = compute_nb_errors_output(
             self.test_input[:1000].to(self.device), nb_to_log=10

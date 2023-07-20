@@ -89,6 +89,8 @@ parser.add_argument("--rpl-prog_len", type=int, default=10)
 
 parser.add_argument("--rpl-nb_runs", type=int, default=8)
 
+parser.add_argument("--rpl-no-prog", action="store_true", default=False)
+
 ##############################
 # sandbox options
 
@@ -442,6 +444,7 @@ elif args.task == "rpl":
         max_input=args.rpl_max_input,
         prog_len=args.rpl_prog_len,
         nb_runs=args.rpl_nb_runs,
+        no_prog=args.rpl_no_prog,
         logger=log_string,
         device=device,
     )
