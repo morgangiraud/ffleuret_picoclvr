@@ -1070,6 +1070,7 @@ class RPL(Task):
         train_sequences = [
             rpl.generate(
                 nb_starting_values=nb_starting_values,
+                nb_result_values_max=4 * nb_starting_values,
                 max_input=max_input,
                 prog_len=prog_len,
                 nb_runs=nb_runs,
@@ -1080,6 +1081,7 @@ class RPL(Task):
         test_sequences = [
             rpl.generate(
                 nb_starting_values=nb_starting_values,
+                nb_result_values_max=4 * nb_starting_values,
                 max_input=max_input,
                 prog_len=prog_len,
                 nb_runs=nb_runs,

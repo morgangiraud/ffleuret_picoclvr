@@ -58,7 +58,9 @@ rpl_ops = ["add", "min", "max", "swp", "rep", "dup", "del"]
 ######################################################################
 
 
-def generate(nb_starting_values=3, max_input=9, prog_len=6, nb_runs=5):
+def generate(
+    nb_starting_values=3, nb_result_values_max=None, max_input=9, prog_len=6, nb_runs=5
+):
     prog_len = (1 + torch.randint(2 * prog_len, (1,))).clamp(max=prog_len).item()
 
     while True:
@@ -77,7 +79,10 @@ def generate(nb_starting_values=3, max_input=9, prog_len=6, nb_runs=5):
 
         result = result + ["<prog>"] + prog
         result = result + ["<end>"]
-        if no_empty_stack:
+
+        if no_empty_stack and (
+            nb_result_values_max is None or len(result_stack) <= nb_result_values_max
+        ):
             break
 
     return result
