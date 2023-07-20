@@ -34,7 +34,7 @@ def masked_inplace_autoregression(
             batches,
             dynamic_ncols=True,
             desc=progress_bar_desc,
-            # total=input.size(0) // batch_size,
+            total=(input.size(0) + batch_size - 1) // batch_size,
         )
 
     with torch.autograd.no_grad():
