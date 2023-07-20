@@ -1,10 +1,12 @@
 
+======================================================================
 For the stack experiment:
 
 ./main.py --task=stack
 
 Takes ~1h10min on a 4090.
 
+======================================================================
 For the arithmetic expressions experiments
 
 # 38M parameters / 250k samples
@@ -15,3 +17,4 @@ For the arithmetic expressions experiments
   learning rate schedule is obviously terrible
 
 ./main.py --task=expr --nb_blocks=48 --dim_model=1024 --nb_train_samples=2500000 --result_dir=results_expr_48b_d1024_2.5M
+======================================================================

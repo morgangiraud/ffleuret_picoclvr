@@ -79,7 +79,18 @@ parser.add_argument("--overwrite_results", action="store_true", default=False)
 parser.add_argument("--checkpoint_name", type=str, default="checkpoint.pth")
 
 ##############################
-# picoclvr options
+# rpl options
+
+parser.add_argument("--rpl-nb_starting_values", type=int, default=5)
+
+parser.add_argument("--rpl-max_input", type=int, default=9)
+
+parser.add_argument("--rpl-prog_len", type=int, default=10)
+
+parser.add_argument("--rpl-nb_runs", type=int, default=8)
+
+##############################
+# sandbox options
 
 parser.add_argument("--sandbox_level", type=int, default=0)
 
@@ -427,6 +438,10 @@ elif args.task == "rpl":
         nb_train_samples=args.nb_train_samples,
         nb_test_samples=args.nb_test_samples,
         batch_size=args.batch_size,
+        nb_starting_values=args.rpl_nb_starting_values,
+        max_input=args.rpl_max_input,
+        prog_len=args.rpl_prog_len,
+        nb_runs=args.rpl_nb_runs,
         logger=log_string,
         device=device,
     )
