@@ -140,7 +140,6 @@ class ProblemLevel2(Problem):
             num_classes=self.len_source,
         )
         source1 = torch.rand(nb, 10).sort(dim=1).indices[:, : self.len_source]
-        # source1 = torch.randint(10, (nb, self.len_source))
         marker1 = torch.full((nb, 1), 10)
         result1 = operators.bmm(source1[:, :, None]).squeeze(-1)
         marker2 = torch.full((nb, 1), 11)
@@ -1311,17 +1310,19 @@ class RPL(Task):
             tokens_output = [self.id2token[i.item()] for i in result[0]]
             tokens_input = ["n/a"] + tokens_output[:-1]
             for n_head in range(ram[0].size(1)):
-                filename = f"rpl_attention_{n_epoch}_h{n_head}.pdf"
+                filename = os.path.join(
+                    result_dir, f"rpl_attention_{n_epoch}_h{n_head}.pdf"
+                )
                 attention_matrices = [m[0, n_head] for m in ram]
                 save_attention_image(
                     filename,
                     tokens_input,
                     tokens_output,
                     attention_matrices,
-                    token_gap=12,
-                    layer_gap=50,
                     k_top=10,
                     # min_total_attention=0.9,
+                    token_gap=12,
+                    layer_gap=50,
                 )
                 logger(f"wrote {filename}")
 

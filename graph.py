@@ -14,16 +14,10 @@ import cairo
 
 
 def save_attention_image(
-    filename,
+    filename,  # image to save
     tokens_input,
     tokens_output,
-    # An iterable set of BxHxTxT attention matrices
-    attention_matrices,
-    pixel_scale=8,
-    token_gap=15,
-    layer_gap=25,
-    y_eps=0.5,
-    padding=10,
+    attention_matrices,  # list of 2d tensors T1xT2, T2xT3, ..., Tk-1xTk
     # do not draw links with a lesser attention
     min_link_attention=0,
     # draw only the strongest links necessary to reache
@@ -32,6 +26,11 @@ def save_attention_image(
     # draw only the top k links
     k_top=None,
     curved=True,
+    pixel_scale=8,
+    token_gap=15,
+    layer_gap=25,
+    y_eps=0.5,
+    padding=10,
 ):
     if k_top is not None:
         am = []
@@ -161,7 +160,7 @@ if __name__ == "__main__":
         nb_heads=2,
         nb_blocks=5,
         dropout=0.1,
-        #causal=True,
+        causal=True,
     )
 
     model.eval()
@@ -170,8 +169,6 @@ if __name__ == "__main__":
     y1 = model(mygpt.BracketedSequence(x)).x
 
     attention_matrices = [m[0, 0] for m in model.retrieve_attention()]
-
-    
 
     # attention_matrices = [ torch.rand(3,5), torch.rand(8,3), torch.rand(5,8) ]
     # for a in attention_matrices: a=a/a.sum(-1,keepdim=True)
