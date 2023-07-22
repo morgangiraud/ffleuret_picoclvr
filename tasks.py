@@ -1284,7 +1284,7 @@ class RPL(Task):
         )
 
         if save_attention_image is not None:
-            input = self.test_input[:10]
+            input = self.test_input[:1]
             result = input.clone()
             s = (result == self.t_prog).long()
             ar_mask = (s.cumsum(dim=1) - s).clamp(min=0, max=1)
@@ -1305,24 +1305,23 @@ class RPL(Task):
                 model.record_attention(True)
                 model(BracketedSequence(result))
                 model.train(t)
-                attention = model.retrieve_attention()
+                ram = model.retrieve_attention()
                 model.record_attention(False)
 
-            n_sample = 0
-            tokens_output = [self.id2token[i.item()] for i in result[n_sample]]
+            tokens_output = [self.id2token[i.item()] for i in result[0]]
             tokens_input = ["n/a"] + tokens_output[:-1]
-            for n_head in range(attention[0].size(1)):
+            for n_head in range(ram[0].size(1)):
                 filename = f"rpl_attention_{n_epoch}_h{n_head}.pdf"
+                attention_matrices = [m[0, n_head] for m in ram]
                 save_attention_image(
                     filename,
                     tokens_input,
                     tokens_output,
-                    attention,
-                    n_sample=n_sample,
-                    n_head=n_head,
+                    attention_matrices,
                     token_gap=12,
-                    layer_gap=40,
-                    # k_top=2,
+                    layer_gap=50,
+                    k_top=10,
+                    # min_total_attention=0.9,
                 )
                 logger(f"wrote {filename}")
 
