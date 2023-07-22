@@ -23,7 +23,12 @@ def save_attention_image(
     layer_gap=25,
     y_eps=0.5,
     padding=10,
+    # do not draw links with a lesser attention
     min_att=0,
+    # draw only the strongest links necessary to have less than
+    # residual remaining
+    residual=None,
+    # draw only the top k links
     k_top=None,
 ):
     attention = torch.cat(
@@ -34,6 +39,12 @@ def save_attention_image(
         attention = attention * (
             attention.sort(dim=-1, descending=True).indices < k_top
         )
+
+    if residual is not None:
+        s = attention.sort(dim=-1)
+        m = 1 - (s.values.cumsum(-1) < residual).long()
+        b = m.new(attention.size()).scatter_(dim=-1, index=s.indices, src=m)
+        attention = attention * b
 
     surface = cairo.RecordingSurface(cairo.CONTENT_COLOR_ALPHA, None)
 
