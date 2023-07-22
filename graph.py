@@ -20,8 +20,8 @@ def save_attention_image(
     attention_matrices,  # list of 2d tensors T1xT2, T2xT3, ..., Tk-1xTk
     # do not draw links with a lesser attention
     min_link_attention=0,
-    # draw only the strongest links necessary to reache
-    # min_total_attention
+    # draw only the strongest links necessary so that their summed
+    # attention is above min_total_attention
     min_total_attention=None,
     # draw only the top k links
     k_top=None,
