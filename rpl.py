@@ -75,9 +75,9 @@ def generate(
             result_stack = rpl_exec(prog, stack)
             if len(result_stack) == 0:
                 no_empty_stack = False
-            result = result + ["<input>"] + stack + ["<output>"] + result_stack
+            result = result + ["<in>"] + stack + ["<out>"] + result_stack
 
-        result = result + ["<prog>"] + prog
+        result = result + ["<prg>"] + prog
         result = result + ["<end>"]
 
         if no_empty_stack and (
@@ -103,11 +103,11 @@ def next_marker(seq, tokens, start=0):
 def decompose(seq):
     io = []
     k = 0
-    while seq[k] == "<input>":
-        o = next_marker(seq, ["<output>"], start=k + 1)
+    while seq[k] == "<in>":
+        o = next_marker(seq, ["<out>"], start=k + 1)
         if o is None:
             raise ValueError("Missing output markers (should be correct in the prompt)")
-        e = next_marker(seq, ["<input>", "<prog>"], start=o)
+        e = next_marker(seq, ["<in>", "<prg>"], start=o)
         if e is None:
             raise ValueError(
                 "Missing input/output markers (should be correct in the prompt)"
@@ -123,14 +123,14 @@ def decompose(seq):
 
         k = e
 
-    if seq[k] == "<prog>":
+    if seq[k] == "<prg>":
         e = next_marker(seq, ["<end>"], start=k)
         if e is None:
             prog = []
         else:
             prog = seq[k + 1 : e]
     else:
-        raise ValueError("Missing <prog> (it should be in the prompt)")
+        raise ValueError("Missing <prg> (it should be in the prompt)")
 
     return prog, io
 
