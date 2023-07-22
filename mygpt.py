@@ -46,7 +46,7 @@ class BracketedSequence:
         return self.x[:, self.first : self.first + self.nb]
 
     def complete(self):
-        return self.first == 0 and self.nb == x.size(1)
+        return self.first == 0 and self.nb == self.x.size(1)
 
 
 ######################################################################
