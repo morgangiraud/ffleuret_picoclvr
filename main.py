@@ -12,7 +12,7 @@ from torch import nn
 from torch.nn import functional as F
 
 import ffutils
-import mygpt, tasks
+import mygpt, tasks, problems
 
 ######################################################################
 
@@ -335,19 +335,19 @@ picoclvr_pruner_eval = (
 
 if args.task == "sandbox":
     if args.sandbox_level == 0:
-        problem = tasks.ProblemLevel0(
+        problem = problems.ProblemLevel0(
             nb_sentences=args.sandbox_levels_nb_items,
             len_prompt=args.sandbox_levels_len_source,
             len_result=args.sandbox_levels_len_result,
         )
     elif args.sandbox_level == 1:
-        problem = tasks.ProblemLevel1(
+        problem = problems.ProblemLevel1(
             nb_operators=args.sandbox_levels_nb_items,
             len_source=args.sandbox_levels_len_source,
             len_result=args.sandbox_levels_len_result,
         )
     elif args.sandbox_level == 2:
-        problem = tasks.ProblemLevel2(
+        problem = problems.ProblemLevel2(
             len_source=args.sandbox_levels_len_source,
             len_result=args.sandbox_levels_len_result,
         )
@@ -356,7 +356,7 @@ if args.task == "sandbox":
 
     task = tasks.SandBox(
         problem,
-        # tasks.ProblemAddition(zero_padded=False, inverted_result=False),
+        # problems.ProblemAddition(zero_padded=False, inverted_result=False),
         nb_train_samples=args.nb_train_samples,
         nb_test_samples=args.nb_test_samples,
         batch_size=args.batch_size,
