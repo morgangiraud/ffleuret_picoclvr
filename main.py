@@ -355,8 +355,9 @@ if args.task == "sandbox":
         raise ValueError(f"Unknown sandbox level {args.sandbox_level}")
 
     task = tasks.SandBox(
-        problem,
+        # problem,
         # problems.ProblemAddition(zero_padded=False, inverted_result=False),
+        problems.ProblemLenId(len_max=args.sandbox_levels_len_source),
         nb_train_samples=args.nb_train_samples,
         nb_test_samples=args.nb_test_samples,
         batch_size=args.batch_size,

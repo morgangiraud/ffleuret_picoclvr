@@ -181,6 +181,38 @@ class SandBox(Task):
             f"accuracy_test {n_epoch} nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%"
         )
 
+        if save_attention_image is not None:
+            ns = torch.randint(self.test_input.size(0), (1,)).item()
+            input = self.test_input[ns : ns + 1].clone()
+
+            with torch.autograd.no_grad():
+                t = model.training
+                model.eval()
+                model.record_attention(True)
+                model(BracketedSequence(input))
+                model.train(t)
+                ram = model.retrieve_attention()
+                model.record_attention(False)
+
+            tokens_output = [c for c in self.problem.seq2str(input[0])]
+            tokens_input = ["n/a"] + tokens_output[:-1]
+            for n_head in range(ram[0].size(1)):
+                filename = os.path.join(
+                    result_dir, f"rpl_attention_{n_epoch}_h{n_head}.pdf"
+                )
+                attention_matrices = [m[0, n_head] for m in ram]
+                save_attention_image(
+                    filename,
+                    tokens_input,
+                    tokens_output,
+                    attention_matrices,
+                    k_top=10,
+                    # min_total_attention=0.9,
+                    token_gap=12,
+                    layer_gap=50,
+                )
+                logger(f"wrote {filename}")
+
 
 ######################################################################
 
