@@ -156,4 +156,3 @@ class ProblemAddition(Problem):
 
 # for strain, stest in zip(train_seq, test_seq):
 # s = torch.cat((strain, stest), 0)
-
