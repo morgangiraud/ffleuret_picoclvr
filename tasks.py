@@ -1283,7 +1283,8 @@ class RPL(Task):
         )
 
         if save_attention_image is not None:
-            input = self.test_input[:1].clone()
+            ns=torch.randint(self.text_input.size(0),(1,)).item()
+            input = self.test_input[ns:ns+1].clone()
             last = (input != self.t_nul).max(0).values.nonzero().max() + 3
             input = input[:, :last].to(self.device)
 
@@ -1296,7 +1297,7 @@ class RPL(Task):
                 ram = model.retrieve_attention()
                 model.record_attention(False)
 
-            tokens_output = [self.id2token[i.item()] for i in input[0]]
+            tokens_output = [self.id2token[i.item()] for i in input[ns]]
             tokens_input = ["n/a"] + tokens_output[:-1]
             for n_head in range(ram[0].size(1)):
                 filename = os.path.join(
