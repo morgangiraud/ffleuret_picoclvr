@@ -42,6 +42,10 @@ parser.add_argument("--result_dir", type=str, default=None)
 
 parser.add_argument("--seed", type=int, default=0)
 
+parser.add_argument("--max_percents_of_test_in_train", type=int, default=1)
+
+########################################
+
 parser.add_argument("--nb_epochs", type=int, default=None)
 
 parser.add_argument("--batch_size", type=int, default=None)
@@ -56,6 +60,8 @@ parser.add_argument("--learning_rate", type=float, default=1e-4)
 
 parser.add_argument("--learning_rate_schedule", type=str, default="10: 2e-5,30: 4e-6")
 
+########################################
+
 parser.add_argument("--model", type=str, default="37M")
 
 parser.add_argument("--dim_model", type=int, default=None)
@@ -69,6 +75,8 @@ parser.add_argument("--nb_heads", type=int, default=None)
 parser.add_argument("--nb_blocks", type=int, default=None)
 
 parser.add_argument("--dropout", type=float, default=0.1)
+
+########################################
 
 parser.add_argument("--deterministic_synthesis", action="store_true", default=False)
 
@@ -570,8 +578,8 @@ log_string(
 )
 
 assert (
-    nb_in_train <= nb_test // 100
-), "More than 1% of test samples are in the train set"
+    nb_in_train <= args.max_percents_of_test_in_train * nb_test / 100
+), f"More than {args.max_percents_of_test_in_train}% of test samples are in the train set"
 
 ##############################
 

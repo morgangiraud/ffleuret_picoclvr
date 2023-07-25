@@ -21,6 +21,38 @@ class Problem:
 ####################
 
 
+class ProblemTwoTargets(Problem):
+    def __init__(self, len_total=10, len_target=2):
+        assert len_total >= 3 * (2 + len_target) - 1
+        self.len_total = len_total
+        self.len_target = len_target
+
+    def generate_sequences(self, nb):
+        k = torch.arange(self.len_total)[None, :]
+        l = torch.randint(self.len_total, (2, nb))[:, :, None] + 1
+        i = torch.randint(10, (2, nb))[:, :, None]
+        a = l[0]
+        b = l[0] + 1 + l[1]
+        c = l[0] + 1 + l[1] + 1 + l[0]
+        sequences = (
+            (k < a) * i[0]
+            + (k == a) * 10
+            + (k > a) * (k < b) * i[1]
+            + (k == b) * 11
+            + (k > b) * (k < c) * i[1]
+            + (k >= c) * 12
+        )
+        ar_mask = (sequences == 11).long()
+        ar_mask = (ar_mask.cumsum(1) - ar_mask).clamp(max=1)
+        return sequences, ar_mask
+
+    def seq2str(self, seq):
+        return "".join("0123456789|>_"[x.item()] for x in seq)
+
+
+####################
+
+
 class ProblemLenId(Problem):
     def __init__(self, len_max=10):
         self.len_max = len_max
