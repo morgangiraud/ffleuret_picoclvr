@@ -110,7 +110,7 @@ def save_attention_image(
             x_advance,
             y_advance,
         ) = ctx.text_extents(s)
-        ctx.move_to(k * token_gap - width_t / 2, token_gap / 5 - y_bearing)
+        ctx.move_to(k * token_gap - width_t / 2, 2 * token_gap / 5)
         ctx.show_text(s)
 
     for k, t in enumerate(tokens_output):
@@ -146,7 +146,7 @@ def save_attention_image(
 if __name__ == "__main__":
     import mygpt
 
-    tokens_output = ["<wat>", 2, 3, 4, "<end>"]
+    tokens_output = ["<wat>", "-", 3, 4, "<end>"]
     tokens_input = [""] + tokens_output[:-1]
 
     vocabulary_size = 3
