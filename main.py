@@ -366,7 +366,7 @@ if args.task == "sandbox":
         # problem,
         # problems.ProblemAddition(zero_padded=False, inverted_result=False),
         # problems.ProblemLenId(len_max=args.sandbox_levels_len_source),
-        problems.ProblemTwoTargets(len_total=12, len_targets=4),
+        problems.ProblemTwoTargets(len_total=16, len_targets=4),
         nb_train_samples=args.nb_train_samples,
         nb_test_samples=args.nb_test_samples,
         batch_size=args.batch_size,

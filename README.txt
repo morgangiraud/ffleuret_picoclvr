@@ -18,3 +18,6 @@ For the arithmetic expressions experiments
 
 ./main.py --task=expr --nb_blocks=48 --dim_model=1024 --nb_train_samples=2500000 --result_dir=results_expr_48b_d1024_2.5M
 ======================================================================
+25.07.2023
+
+./main.py --task=sandbox --nb_train_samples=10000 --nb_test_samples=1000 --nb_blocks=4 --nb_heads=1 --nb_epochs=20
