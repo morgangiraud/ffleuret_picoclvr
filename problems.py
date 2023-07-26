@@ -87,7 +87,7 @@ class ProblemByHeart(Problem):
 
 
 class ProblemLearnOperator(Problem):
-    def __init__(self, nb_operators=100, len_source=5, len_result=8):
+    def __init__(self, nb_operators=100, len_source=6, len_result=9):
         self.len_source = len_source
         self.len_result = len_result
         self.len_nb_operator = int(math.log(nb_operators) / math.log(10)) + 1
