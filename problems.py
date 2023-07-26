@@ -68,38 +68,8 @@ class ProblemTwoTargets(Problem):
 ####################
 
 
-class ProblemLenId(Problem):
-    def __init__(self, len_max=10):
-        self.len_max = len_max
-
-    def generate_sequences(self, nb):
-        k = torch.arange(self.len_max * 3 + 3)[None, :]
-        l = torch.randint(self.len_max, (2, nb))[:, :, None] + 1
-        i = torch.randint(10, (2, nb))[:, :, None]
-        a = l[0]
-        b = l[0] + 1 + l[1]
-        c = l[0] + 1 + l[1] + 1 + l[0]
-        sequences = (
-            (k < a) * i[0]
-            + (k == a) * 10
-            + (k > a) * (k < b) * i[1]
-            + (k == b) * 11
-            + (k > b) * (k < c) * i[1]
-            + (k >= c) * 12
-        )
-        ar_mask = (sequences == 11).long()
-        ar_mask = (ar_mask.cumsum(1) - ar_mask).clamp(max=1)
-        return sequences, ar_mask
-
-    def seq2str(self, seq):
-        return "".join("0123456789|>_"[x.item()] for x in seq)
-
-
-####################
-
-
-class ProblemLevel0(Problem):
-    def __init__(self, nb_sentences=100, len_prompt=5, len_result=5):
+class ProblemByHeart(Problem):
+    def __init__(self, nb_sentences=100, len_prompt=8, len_result=8):
         self.seq = torch.randint(10, (nb_sentences, len_prompt + 1 + len_result))
         self.seq[:, len_prompt] = 10
 
@@ -116,7 +86,7 @@ class ProblemLevel0(Problem):
 ####################
 
 
-class ProblemLevel1(Problem):
+class ProblemLearnOperator(Problem):
     def __init__(self, nb_operators=100, len_source=5, len_result=8):
         self.len_source = len_source
         self.len_result = len_result
@@ -134,7 +104,6 @@ class ProblemLevel1(Problem):
             // 10 ** torch.arange(self.len_nb_operator - 1, -1, -1)
         ) % 10
         marker1 = torch.full((nb, 1), 10)
-        # source = torch.randint(10, (nb, self.len_source))
         source = torch.rand(nb, 10).sort(dim=1).indices[:, : self.len_source]
         marker2 = torch.full((nb, 1), 11)
         result = operators.bmm(source[:, :, None]).squeeze(-1)
@@ -150,7 +119,7 @@ class ProblemLevel1(Problem):
 ####################
 
 
-class ProblemLevel2(Problem):
+class ProblemGuessOperator(Problem):
     def __init__(self, len_source=5, len_result=8):
         self.len_source = len_source
         self.len_result = len_result
