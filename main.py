@@ -122,9 +122,9 @@ parser.add_argument("--maze_nb_walls", type=int, default=45)
 ##############################
 # Snake options
 
-parser.add_argument("--snake_height", type=int, default=6)
+parser.add_argument("--snake_height", type=int, default=9)
 
-parser.add_argument("--snake_width", type=int, default=8)
+parser.add_argument("--snake_width", type=int, default=12)
 
 parser.add_argument("--snake_nb_colors", type=int, default=5)
 
@@ -171,10 +171,34 @@ if args.result_dir is None:
 ######################################################################
 
 default_task_args = {
-    "sandbox": {
-        "nb_epochs": 50,
+    "byheart": {
+        "nb_epochs": 5,
         "batch_size": 25,
-        "nb_train_samples": 100000,
+        "nb_train_samples": 50000,
+        "nb_test_samples": 10000,
+    },
+    "learnop": {
+        "nb_epochs": 5,
+        "batch_size": 25,
+        "nb_train_samples": 50000,
+        "nb_test_samples": 10000,
+    },
+    "guessop": {
+        "nb_epochs": 5,
+        "batch_size": 25,
+        "nb_train_samples": 50000,
+        "nb_test_samples": 10000,
+    },
+    "twotargets": {
+        "nb_epochs": 5,
+        "batch_size": 25,
+        "nb_train_samples": 50000,
+        "nb_test_samples": 10000,
+    },
+    "addition": {
+        "nb_epochs": 5,
+        "batch_size": 25,
+        "nb_train_samples": 50000,
         "nb_test_samples": 10000,
     },
     "picoclvr": {
@@ -186,7 +210,7 @@ default_task_args = {
     "mnist": {
         "nb_epochs": 25,
         "batch_size": 10,
-        "nb_train_samples": 250000,
+        "nb_train_samples": 60000,
         "nb_test_samples": 10000,
     },
     "maze": {
@@ -198,7 +222,7 @@ default_task_args = {
     "snake": {
         "nb_epochs": 5,
         "batch_size": 25,
-        "nb_train_samples": 250000,
+        "nb_train_samples": 50000,
         "nb_test_samples": 10000,
     },
     "stack": {
@@ -339,7 +363,7 @@ if args.task == "byheart":
         logger=log_string,
         device=device,
     )
-
+    args.max_percents_of_test_in_train = -1
 
 elif args.task == "learnop":
     task = tasks.SandBox(
@@ -563,33 +587,33 @@ train_set_perplexity = math.exp(entropy)
 ######################################################################
 # A bit of paranoia never hurts
 
+if args.max_percents_of_test_in_train >= 0:
 
-def subsets_as_tuples(batches, cs):
-    s = set()
-    for batch in batches:
-        for x in batch:
-            s.add(tuple([v.item() for v in x]))
-            if len(s) == cs:
-                yield s
-                s = set()
-    yield s
+    def subsets_as_tuples(batches, cs):
+        s = set()
+        for batch in batches:
+            for x in batch:
+                s.add(tuple([v.item() for v in x]))
+                if len(s) == cs:
+                    yield s
+                    s = set()
+        yield s
 
+    nb_test, nb_in_train = 0, 0
+    for test_subset in subsets_as_tuples(task.batches(split="test"), 25000):
+        in_train = set()
+        for train_subset in subsets_as_tuples(task.batches(split="train"), 25000):
+            in_train.update(test_subset.intersection(train_subset))
+        nb_in_train += len(in_train)
+        nb_test += len(test_subset)
 
-nb_test, nb_in_train = 0, 0
-for test_subset in subsets_as_tuples(task.batches(split="test"), 25000):
-    in_train = set()
-    for train_subset in subsets_as_tuples(task.batches(split="train"), 25000):
-        in_train.update(test_subset.intersection(train_subset))
-    nb_in_train += len(in_train)
-    nb_test += len(test_subset)
+    log_string(
+        f"data_check {nb_in_train*100/nb_test:.02f}% ({nb_in_train}/{nb_test}) of test samples are in the train set"
+    )
 
-log_string(
-    f"data_check {nb_in_train*100/nb_test:.02f}% ({nb_in_train}/{nb_test}) of test samples are in the train set"
-)
-
-assert (
-    nb_in_train <= args.max_percents_of_test_in_train * nb_test / 100
-), f"More than {args.max_percents_of_test_in_train}% of test samples are in the train set"
+    assert (
+        nb_in_train <= args.max_percents_of_test_in_train * nb_test / 100
+    ), f"More than {args.max_percents_of_test_in_train}% of test samples are in the train set"
 
 ##############################
 
