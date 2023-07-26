@@ -32,7 +32,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     "--task",
     type=str,
-    default="sandbox",
+    default="twotargets",
     help="byheart, learnop, guessop, twotargets, addition, picoclvr, mnist, maze, snake, stack, expr, rpl",
 )
 
