@@ -62,7 +62,7 @@ parser.add_argument("--learning_rate_schedule", type=str, default="10: 2e-5,30: 
 
 ########################################
 
-parser.add_argument("--model", type=str, default="37M")
+parser.add_argument("--model", type=str, default=None)
 
 parser.add_argument("--dim_model", type=int, default=None)
 
@@ -172,78 +172,91 @@ if args.result_dir is None:
 
 default_task_args = {
     "byheart": {
+        "model": "37M",
         "nb_epochs": 5,
         "batch_size": 25,
         "nb_train_samples": 50000,
         "nb_test_samples": 10000,
     },
     "learnop": {
+        "model": "37M",
         "nb_epochs": 5,
         "batch_size": 25,
         "nb_train_samples": 50000,
         "nb_test_samples": 10000,
     },
     "guessop": {
+        "model": "122M",
         "nb_epochs": 5,
         "batch_size": 25,
-        "nb_train_samples": 50000,
+        "nb_train_samples": 250000,
         "nb_test_samples": 10000,
     },
     "twotargets": {
+        "model": "37M",
         "nb_epochs": 5,
         "batch_size": 25,
         "nb_train_samples": 50000,
         "nb_test_samples": 10000,
     },
     "addition": {
+        "model": "122M",
         "nb_epochs": 5,
         "batch_size": 25,
         "nb_train_samples": 50000,
         "nb_test_samples": 10000,
     },
     "picoclvr": {
+        "model": "37M",
         "nb_epochs": 25,
         "batch_size": 25,
         "nb_train_samples": 250000,
         "nb_test_samples": 10000,
     },
     "mnist": {
+        "model": "37M",
         "nb_epochs": 25,
         "batch_size": 10,
         "nb_train_samples": 60000,
         "nb_test_samples": 10000,
     },
     "maze": {
+        "model": "37M",
         "nb_epochs": 25,
         "batch_size": 5,
         "nb_train_samples": 250000,
         "nb_test_samples": 10000,
     },
     "snake": {
+        "model": "37M",
         "nb_epochs": 5,
         "batch_size": 25,
         "nb_train_samples": 50000,
         "nb_test_samples": 10000,
     },
     "stack": {
+        "model": "37M",
         "nb_epochs": 5,
         "batch_size": 25,
         "nb_train_samples": 100000,
         "nb_test_samples": 1000,
     },
     "expr": {
+        "model": "37M",
         "nb_epochs": 40,
         "batch_size": 25,
         "nb_train_samples": 1000000,
         "nb_test_samples": 10000,
     },
     "rpl": {
+        "model": "37M",
         "nb_epochs": 40,
         "batch_size": 25,
         "nb_train_samples": 100000,
         "nb_test_samples": 10000,
     },
     "world": {
+        "model": "37M",
         "nb_epochs": 10,
         "batch_size": 25,
         "nb_train_samples": 25000,
