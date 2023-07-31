@@ -113,11 +113,11 @@ parser.add_argument("--picocvlr_prune_properties", type=str, default="none")
 ##############################
 # Maze options
 
-parser.add_argument("--maze_height", type=int, default=23)
+parser.add_argument("--maze_height", type=int, default=13)
 
-parser.add_argument("--maze_width", type=int, default=39)
+parser.add_argument("--maze_width", type=int, default=21)
 
-parser.add_argument("--maze_nb_walls", type=int, default=45)
+parser.add_argument("--maze_nb_walls", type=int, default=15)
 
 ##############################
 # Snake options
@@ -173,37 +173,37 @@ if args.result_dir is None:
 default_task_args = {
     "byheart": {
         "model": "37M",
-        "nb_epochs": 5,
+        "nb_epochs": 2,
         "batch_size": 25,
         "nb_train_samples": 50000,
         "nb_test_samples": 10000,
     },
     "learnop": {
         "model": "37M",
-        "nb_epochs": 5,
+        "nb_epochs": 15,
         "batch_size": 25,
         "nb_train_samples": 50000,
         "nb_test_samples": 10000,
     },
     "guessop": {
-        "model": "122M",
+        "model": "352M",
         "nb_epochs": 5,
         "batch_size": 25,
-        "nb_train_samples": 250000,
+        "nb_train_samples": 1000000,
         "nb_test_samples": 10000,
     },
     "twotargets": {
         "model": "37M",
-        "nb_epochs": 5,
+        "nb_epochs": 10,
         "batch_size": 25,
         "nb_train_samples": 50000,
         "nb_test_samples": 10000,
     },
     "addition": {
-        "model": "122M",
-        "nb_epochs": 5,
+        "model": "352M",
+        "nb_epochs": 50,
         "batch_size": 25,
-        "nb_train_samples": 50000,
+        "nb_train_samples": 250000,
         "nb_test_samples": 10000,
     },
     "picoclvr": {
@@ -224,35 +224,35 @@ default_task_args = {
         "model": "37M",
         "nb_epochs": 25,
         "batch_size": 5,
-        "nb_train_samples": 250000,
+        "nb_train_samples": 100000,
         "nb_test_samples": 10000,
     },
     "snake": {
         "model": "37M",
         "nb_epochs": 5,
         "batch_size": 25,
-        "nb_train_samples": 50000,
+        "nb_train_samples": 250000,
         "nb_test_samples": 10000,
     },
     "stack": {
         "model": "37M",
-        "nb_epochs": 5,
+        "nb_epochs": 15,
         "batch_size": 25,
         "nb_train_samples": 100000,
         "nb_test_samples": 1000,
     },
     "expr": {
-        "model": "37M",
-        "nb_epochs": 40,
+        "model": "352M",
+        "nb_epochs": 25,
         "batch_size": 25,
-        "nb_train_samples": 1000000,
+        "nb_train_samples": 2500000,
         "nb_test_samples": 10000,
     },
     "rpl": {
-        "model": "37M",
-        "nb_epochs": 40,
-        "batch_size": 25,
-        "nb_train_samples": 100000,
+        "model": "352M",
+        "nb_epochs": 50,
+        "batch_size": 10,
+        "nb_train_samples": 2500000,
         "nb_test_samples": 10000,
     },
     "world": {
