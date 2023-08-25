@@ -1539,8 +1539,8 @@ class Grid(Task):
         nb_total = ar_mask.sum().item()
         nb_correct = ((correct == result).long() * ar_mask).sum().item()
 
-        logger(f"test_performance {nb_total=} {nb_correct=}")
-        logger(f"main_test_accuracy {nb_correct / nb_total}")
+        logger(f"test_performance {n_epoch} {nb_total=} {nb_correct=}")
+        logger(f"main_test_accuracy {n_epoch} {nb_correct / nb_total}")
 
 
 ######################################################################
