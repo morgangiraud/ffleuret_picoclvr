@@ -100,6 +100,11 @@ parser.add_argument("--rpl_nb_runs", type=int, default=5)
 parser.add_argument("--rpl_no_prog", action="store_true", default=False)
 
 ##############################
+# grid options
+
+parser.add_argument("--grid_size", type=int, default=6)
+
+##############################
 # picoclvr options
 
 parser.add_argument("--picoclvr_nb_colors", type=int, default=5)
@@ -517,8 +522,7 @@ elif args.task == "grid":
         nb_train_samples=args.nb_train_samples,
         nb_test_samples=args.nb_test_samples,
         batch_size=args.batch_size,
-        height=args.picoclvr_height,
-        width=args.picoclvr_width,
+        size=args.grid_size,
         logger=log_string,
         device=device,
     )
