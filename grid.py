@@ -118,7 +118,7 @@ class GridFactory:
 
         return properties
 
-    def generate_example(self):
+    def generate_scene_and_questions(self):
         while True:
             while True:
                 scene = self.generate_scene()
@@ -142,25 +142,51 @@ class GridFactory:
                 if len(false) >= self.nb_questions:
                     break
 
+            # print(f"{a=}")
+
             if a < 10:
                 break
 
         true = [true[k] for k in torch.randperm(len(true))[: self.nb_questions]]
         false = [false[k] for k in torch.randperm(len(false))[: self.nb_questions]]
-        true = [(q, "yes") for q in true]
-        false = [(q, "no") for q in false]
+        true = ["<prop> " + q + " <true>" for q in true]
+        false = ["<prop> " + q + " <false>" for q in false]
 
         union = true + false
         questions = [union[k] for k in torch.randperm(len(union))[: self.nb_questions]]
 
-        return scene, questions
+        result = " ".join(
+            ["<obj> " + x for x in self.grid_positions(scene)] + questions
+        )
+
+        return scene, result
+
+    def generate_samples(self, nb, progress_bar=None):
+        result = []
+
+        r = range(nb)
+        if progress_bar is not None:
+            r = progress_bar(r)
+
+        for _ in r:
+            result.append(self.generate_scene_and_questions()[1])
+
+        return result
 
 
 ######################################################################
 
 if __name__ == "__main__":
+    import time
+
     grid_factory = GridFactory()
-    scene, questions = grid_factory.generate_example()
+
+    start_time = time.perf_counter()
+    samples = grid_factory.generate_samples(10000)
+    end_time = time.perf_counter()
+    print(f"{len(samples) / (end_time - start_time):.02f} samples per second")
+
+    scene, questions = grid_factory.generate_scene_and_questions()
     grid_factory.print_scene(scene)
     print(questions)
 

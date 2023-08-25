@@ -33,7 +33,7 @@ parser.add_argument(
     "--task",
     type=str,
     default="twotargets",
-    help="byheart, learnop, guessop, twotargets, addition, picoclvr, mnist, maze, snake, stack, expr, rpl",
+    help="byheart, learnop, guessop, twotargets, addition, picoclvr, mnist, maze, snake, stack, expr, rpl, grid",
 )
 
 parser.add_argument("--log_filename", type=str, default="train.log", help=" ")
@@ -261,6 +261,13 @@ default_task_args = {
         "batch_size": 25,
         "nb_train_samples": 25000,
         "nb_test_samples": 1000,
+    },
+    "grid": {
+        "model": "37M",
+        "nb_epochs": 25,
+        "batch_size": 25,
+        "nb_train_samples": 250000,
+        "nb_test_samples": 10000,
     },
 }
 
@@ -501,6 +508,17 @@ elif args.task == "rpl":
         prog_len=args.rpl_prog_len,
         nb_runs=args.rpl_nb_runs,
         no_prog=args.rpl_no_prog,
+        logger=log_string,
+        device=device,
+    )
+
+elif args.task == "grid":
+    task = tasks.Grid(
+        nb_train_samples=args.nb_train_samples,
+        nb_test_samples=args.nb_test_samples,
+        batch_size=args.batch_size,
+        height=args.picoclvr_height,
+        width=args.picoclvr_width,
         logger=log_string,
         device=device,
     )
