@@ -1495,8 +1495,8 @@ class Grid(Task):
         self.token2id = dict([(t, n) for n, t in enumerate(tokens)])
         self.id2token = dict([(n, t) for n, t in enumerate(tokens)])
         self.t_nul = self.token2id["#"]
-        self.t_true = self.token2id["<true>"]
-        self.t_false = self.token2id["<false>"]
+        self.t_true = self.token2id["true"]
+        self.t_false = self.token2id["false"]
 
         # Tokenize the train and test sets
         self.train_input = self.tensorize(self.train_descr)
