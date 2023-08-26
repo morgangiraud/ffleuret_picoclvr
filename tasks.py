@@ -1426,7 +1426,7 @@ import grid
 
 class Grid(Task):
     # Make a tensor from a list of strings
-    def tensorize(self, descr):
+    def str2tensor(self, descr):
         token_descr = [s.strip().split(" ") for s in descr]
         l = max([len(s) for s in token_descr])
         token_descr = [s + ["#"] * (l - len(s)) for s in token_descr]
@@ -1434,7 +1434,7 @@ class Grid(Task):
         return torch.tensor(id_descr, device=self.device)
 
     # Make a list of strings from a tensor
-    def detensorize(self, x):
+    def tensor2str(self, x):
         return [" ".join([self.id2token[t.item()] for t in r]) for r in x]
 
     # trim all the tensors in the tuple z to remove as much token from
@@ -1499,8 +1499,8 @@ class Grid(Task):
         self.t_false = self.token2id["false"]
 
         # Tokenize the train and test sets
-        self.train_input = self.tensorize(self.train_descr)
-        self.test_input = self.tensorize(self.test_descr)
+        self.train_input = self.str2tensor(self.train_descr)
+        self.test_input = self.str2tensor(self.test_descr)
 
     def batches(self, split="train"):
         assert split in {"train", "test"}
@@ -1519,9 +1519,11 @@ class Grid(Task):
         correct = self.test_input[:1000]
         result = correct.clone()
         ar_mask = torch.logical_or(result == self.t_true, result == self.t_false).long()
-        result *= 1 - ar_mask
+        result *= 1 - ar_mask  # paraaaaanoiaaaaaaa
 
-        for e in self.detensorize(result[:10]):
+        logger(f"----------------------------------------------------------")
+
+        for e in self.tensor2str(result[:10]):
             logger(f"test_before {e}")
 
         masked_inplace_autoregression(
@@ -1533,8 +1535,12 @@ class Grid(Task):
             device=self.device,
         )
 
-        for e in self.detensorize(result[:10]):
-            logger(f"test_after {e}")
+        logger(f"----------------------------------------------------------")
+
+        for e in self.tensor2str(result[:10]):
+            logger(f"test_after  {e}")
+
+        logger(f"----------------------------------------------------------")
 
         nb_total = ar_mask.sum().item()
         nb_correct = ((correct == result).long() * ar_mask).sum().item()

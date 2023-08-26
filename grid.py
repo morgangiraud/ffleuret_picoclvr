@@ -220,11 +220,17 @@ if __name__ == "__main__":
     # print(f"{len(samples) / (end_time - start_time):.02f} samples per second")
 
     start_scene, scene, questions = grid_factory.generate_scene_and_questions()
+    print()
     print("-- Original scene -----------------------------")
+    print()
     grid_factory.print_scene(start_scene)
+    print()
     print("-- Transformed scene --------------------------")
+    print()
     grid_factory.print_scene(scene)
+    print()
     print("-- Sequence -----------------------------------")
+    print()
     print(questions)
 
 ######################################################################
