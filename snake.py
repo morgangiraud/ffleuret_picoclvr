@@ -111,45 +111,22 @@ def solver(input, ar_mask):
             # print(f'@2 {i=} {j=}')
 
 
+def seq2str(seq):
+    return "".join(["NESW123456789"[i] for i in seq])
+
+
 ######################################################################
 
 if __name__ == "__main__":
-    import cairo, numpy, math
-
-    color_name2rgb = {
-        "red": [255, 0, 0],
-        "green": [0, 128, 0],
-        "blue": [0, 0, 255],
-        "yellow": [255, 255, 0],
-        "orange": [255, 128, 0],
-        "maroon": [128, 0, 0],
-        "dark_red": [139, 0, 0],
-        "brown": [165, 42, 42],
-        "firebrick": [178, 34, 34],
-        "crimson": [220, 20, 60],
-        "tomato": [255, 99, 71],
-        "coral": [255, 127, 80],
-        "indian_red": [205, 92, 92],
-        "light_coral": [240, 128, 128],
-        "dark_salmon": [233, 150, 122],
-        "salmon": [250, 128, 114],
-    }
-
-    sequences, sequences_prior_visits, worlds, world_prior_visits = generate_sequences(
-        8, 6, 8, 5, 20, 10
+    train_input, train_prior_visits, _, _ = generate_sequences(
+        nb=20,
+        height=9,
+        width=12,
+        nb_colors=5,
+        length=50,
+        prompt_length=100,
     )
 
-    delta = 16
-    height, width = sequences.size(0) * 16, sequences.size(1) * 16
-    pixel_map = torch.ByteTensor(width, height, 4).fill_(0).numpy()
-    surface = cairo.ImageSurface.create_for_data(
-        pixel_map, cairo.FORMAT_ARGB32, width, height
-    )
-    ctx = cairo.Context(surface)
-    ctx.set_line_width(1.0)
-
-    ctx.set_fill_rule(cairo.FILL_RULE_EVEN_ODD)
-
-    ctx.fill()
+    print([seq2str(s) for s in train_input])
 
 ######################################################################

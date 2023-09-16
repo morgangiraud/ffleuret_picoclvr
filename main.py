@@ -159,11 +159,6 @@ parser.add_argument("--expr_result_max", type=int, default=99)
 
 parser.add_argument("--expr_input_file", type=str, default=None)
 
-##############################
-# World options
-
-parser.add_argument("--world_vqae_nb_epochs", type=int, default=25)
-
 ######################################################################
 
 args = parser.parse_args()
@@ -248,18 +243,11 @@ default_task_args = {
         "nb_train_samples": 50000,
         "nb_test_samples": 10000,
     },
-
     "mnist": {
         "model": "37M",
         "batch_size": 10,
         "nb_train_samples": 60000,
         "nb_test_samples": 10000,
-    },
-    "world": {
-        "model": "37M",
-        "batch_size": 25,
-        "nb_train_samples": 25000,
-        "nb_test_samples": 1000,
     },
 }
 
@@ -510,16 +498,6 @@ elif args.task == "grid":
         nb_test_samples=args.nb_test_samples,
         batch_size=args.batch_size,
         size=args.grid_size,
-        logger=log_string,
-        device=device,
-    )
-
-elif args.task == "world":
-    task = tasks.World(
-        nb_train_samples=args.nb_train_samples,
-        nb_test_samples=args.nb_test_samples,
-        batch_size=args.batch_size,
-        vqae_nb_epochs=args.world_vqae_nb_epochs,
         logger=log_string,
         device=device,
     )
