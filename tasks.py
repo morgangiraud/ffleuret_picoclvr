@@ -1588,13 +1588,19 @@ class QMLP(Task):
 
         self.train_input = seq[:nb_train_samples]
         self.train_q_test_set = q_test_set[:nb_train_samples]
+        self.train_ref_test_errors = test_error[:nb_train_samples]
         self.test_input = seq[nb_train_samples:]
         self.test_q_test_set = q_test_set[nb_train_samples:]
-        self.ref_test_errors = test_error
+        self.test_ref_test_errors = test_error[nb_train_samples:]
+
+        filename = os.path.join(result_dir, f"train_errors_ref.dat")
+        with open(filename, "w") as f:
+            for e in self.train_ref_test_errors:
+                f.write(f"{e}\n")
 
         filename = os.path.join(result_dir, f"test_errors_ref.dat")
         with open(filename, "w") as f:
-            for e in self.ref_test_errors:
+            for e in self.test_ref_test_errors:
                 f.write(f"{e}\n")
 
         self.nb_codes = max(self.train_input.max(), self.test_input.max()) + 1
