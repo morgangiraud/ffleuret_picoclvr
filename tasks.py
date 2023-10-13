@@ -1550,3 +1550,105 @@ class Grid(Task):
 
 
 ######################################################################
+
+import qmlp
+
+
+class QMLP(Task):
+
+    ######################
+
+    def __init__(
+        self,
+        nb_train_samples,
+        nb_test_samples,
+        batch_size,
+        logger=None,
+        device=torch.device("cpu"),
+    ):
+        super().__init__()
+
+        self.device = device
+        self.batch_size = batch_size
+
+        if logger is not None:
+            logger(
+                f"generating {nb_train_samples+nb_test_samples} samples (can take some time)"
+            )
+
+        self.train_descr = self.grid_factory.generate_samples(
+            nb_train_samples, lambda r: tqdm.tqdm(r)
+        )
+        self.test_descr = self.grid_factory.generate_samples(
+            nb_test_samples, lambda r: tqdm.tqdm(r)
+        )
+
+        # Build the tokenizer
+        tokens = set()
+        for d in [self.train_descr, self.test_descr]:
+            for s in d:
+                for t in s.strip().split(" "):
+                    tokens.add(t)
+        # make this set a sorted list to get the same tensors given
+        # the same descr
+        tokens = list(tokens)
+        tokens.sort()
+        tokens = ["#"] + tokens
+        self.token2id = dict([(t, n) for n, t in enumerate(tokens)])
+        self.id2token = dict([(n, t) for n, t in enumerate(tokens)])
+        self.t_nul = self.token2id["#"]
+        self.t_true = self.token2id["true"]
+        self.t_false = self.token2id["false"]
+
+        # Tokenize the train and test sets
+        self.train_input = self.str2tensor(self.train_descr)
+        self.test_input = self.str2tensor(self.test_descr)
+
+    def batches(self, split="train"):
+        assert split in {"train", "test"}
+        input = self.train_input if split == "train" else self.test_input
+        for batch in tqdm.tqdm(
+            input.split(self.batch_size), dynamic_ncols=True, desc=f"epoch-{split}"
+        ):
+            yield self.trim(batch)
+
+    def vocabulary_size(self):
+        return len(self.token2id)
+
+    def produce_results(
+        self, n_epoch, model, result_dir, logger, deterministic_synthesis
+    ):
+        correct = self.test_input[:1000]
+        result = correct.clone()
+        ar_mask = torch.logical_or(result == self.t_true, result == self.t_false).long()
+        result *= 1 - ar_mask  # paraaaaanoiaaaaaaa
+
+        logger(f"----------------------------------------------------------")
+
+        for e in self.tensor2str(result[:10]):
+            logger(f"test_before {e}")
+
+        masked_inplace_autoregression(
+            model,
+            self.batch_size,
+            result,
+            ar_mask,
+            deterministic_synthesis,
+            device=self.device,
+        )
+
+        logger(f"----------------------------------------------------------")
+
+        for e in self.tensor2str(result[:10]):
+            logger(f"test_after  {e}")
+
+        logger(f"----------------------------------------------------------")
+
+        nb_total = ar_mask.sum().item()
+        nb_correct = ((correct == result).long() * ar_mask).sum().item()
+
+        logger(f"test_performance {n_epoch} {nb_total=} {nb_correct=}")
+        logger(f"main_test_accuracy {n_epoch} {nb_correct / nb_total}")
+
+
+######################################################################
