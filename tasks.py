@@ -1555,7 +1555,6 @@ import qmlp
 
 
 class QMLP(Task):
-
     ######################
 
     def __init__(
@@ -1563,6 +1562,7 @@ class QMLP(Task):
         nb_train_samples,
         nb_test_samples,
         batch_size,
+        result_dir,
         logger=None,
         device=torch.device("cpu"),
     ):
@@ -1577,19 +1577,25 @@ class QMLP(Task):
                 f"generating {nb_train_samples+nb_test_samples} samples (can take some time)"
             )
 
-        seq, q_test_set = generate_sequence_and_test_set(
-            nb_mlps=nb_train_samples+nb_test_samples,
+        seq, q_test_set, test_error = qmlp.generate_sequence_and_test_set(
+            nb_mlps=nb_train_samples + nb_test_samples,
             nb_samples=self.nb_samples_per_mlp,
             device=self.device,
             batch_size=64,
             nb_epochs=250,
-            nb_mlps_per_batch=1024
+            nb_mlps_per_batch=1024,
         )
 
         self.train_input = seq[:nb_train_samples]
         self.train_q_test_set = q_test_set[:nb_train_samples]
         self.test_input = seq[nb_train_samples:]
         self.test_q_test_set = q_test_set[nb_train_samples:]
+        self.ref_test_errors = test_error
+
+        filename = os.path.join(result_dir, f"test_errors_ref.dat")
+        with open(filename, "w") as f:
+            for e in self.ref_test_errors:
+                f.write(f"{e}\n")
 
         self.nb_codes = max(self.train_input.max(), self.test_input.max()) + 1
 
@@ -1599,7 +1605,7 @@ class QMLP(Task):
         for batch in tqdm.tqdm(
             input.split(self.batch_size), dynamic_ncols=True, desc=f"epoch-{split}"
         ):
-            yield self.trim(batch)
+            yield batch
 
     def vocabulary_size(self):
         return self.nb_codes
@@ -1609,13 +1615,12 @@ class QMLP(Task):
     ):
         correct = self.test_input[:1000]
         result = correct.clone()
-        ar_mask = torch.arange(result.size(1)) > self.nb_samples_per_mlp * 3 + 1
+        ar_mask = (
+            torch.arange(result.size(1), device=result.device)
+            > self.nb_samples_per_mlp * 3 + 1
+        ).long()[None, :]
+        ar_mask = ar_mask.expand_as(result)
         result *= 1 - ar_mask  # paraaaaanoiaaaaaaa
-
-        logger(f"----------------------------------------------------------")
-
-        for e in self.tensor2str(result[:10]):
-            logger(f"test_before {e}")
 
         masked_inplace_autoregression(
             model,
@@ -1626,18 +1631,14 @@ class QMLP(Task):
             device=self.device,
         )
 
-        logger(f"----------------------------------------------------------")
+        q_train_set = result[:, : self.nb_samples_per_mlp * 3]
+        q_params = result[:, self.nb_samples_per_mlp * 3 + 1 :]
+        error_test = qmlp.evaluate_q_params(q_params, self.test_q_test_set)
 
-        for e in self.tensor2str(result[:10]):
-            logger(f"test_after  {e}")
-
-        logger(f"----------------------------------------------------------")
-
-        q_train_set = result[:, : nb_samples * 3]
-        q_params = result[:, nb_samples * 3 + 1 :]
-        error_test = evaluate_q_params(q_params, q_test_set, nb_mlps_per_batch=17)
-
-        logger(f"{error_test=}")
+        filename = os.path.join(result_dir, f"test_errors_{n_epoch:04d}.dat")
+        with open(filename, "w") as f:
+            for e in error_test:
+                f.write(f"{e}\n")
 
 
 ######################################################################

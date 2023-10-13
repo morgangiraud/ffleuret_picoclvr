@@ -33,7 +33,7 @@ parser.add_argument(
     "--task",
     type=str,
     default="twotargets",
-    help="byheart, learnop, guessop, twotargets, addition, picoclvr, mnist, maze, snake, stack, expr, rpl, grid",
+    help="byheart, learnop, guessop, twotargets, addition, picoclvr, mnist, maze, snake, stack, expr, rpl, grid, qmlp",
 )
 
 parser.add_argument("--log_filename", type=str, default="train.log", help=" ")
@@ -194,6 +194,12 @@ default_task_args = {
         "batch_size": 25,
         "nb_train_samples": 250000,
         "nb_test_samples": 10000,
+    },
+    "qmlp": {
+        "model": "37M",
+        "batch_size": 10,
+        "nb_train_samples": 100000,
+        "nb_test_samples": 1000,
     },
     "guessop": {
         "model": "352M",
@@ -498,6 +504,16 @@ elif args.task == "grid":
         nb_test_samples=args.nb_test_samples,
         batch_size=args.batch_size,
         size=args.grid_size,
+        logger=log_string,
+        device=device,
+    )
+
+elif args.task == "qmlp":
+    task = tasks.QMLP(
+        nb_train_samples=args.nb_train_samples,
+        nb_test_samples=args.nb_test_samples,
+        batch_size=args.batch_size,
+        result_dir=args.result_dir,
         logger=log_string,
         device=device,
     )
