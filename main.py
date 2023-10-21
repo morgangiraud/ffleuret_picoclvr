@@ -257,7 +257,7 @@ default_task_args = {
     "degradation": {
         "model": "37M",
         "batch_size": 25,
-        "nb_train_samples": 100000,
+        "nb_train_samples": 250000,
         "nb_test_samples": 10000,
     },
     "mnist": {
