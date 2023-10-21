@@ -25,88 +25,61 @@ class Problem:
 ####################
 
 
-class ProblemTwoCuts(Problem):
-    def __init__(self, len_total=50, nb_values=100, global_constraint=True):
-        self.len_total = len_total
-        self.nb_values = nb_values
-        self.global_constraint = global_constraint
-
-    def generate_sequences_internal(self, nb):
-        return u,v,a,b,c
+class ProblemDegradation(Problem):
+    def __init__(self, nb_state_tokens=5, nb_time_steps=5, value_max=25, hard=False):
+        self.nb_state_tokens = nb_state_tokens
+        self.nb_time_steps = nb_time_steps
+        self.value_max = value_max
+        self.hard = hard
 
     def generate_sequences(self,nb):
 
-        u = torch.randint(self.len_total, (nb,))
-        v = torch.randint(self.len_total, (nb,))
+        x = (torch.rand(nb,self.nb_state_tokens).sort(dim=-1).indices == 0).long() * self.value_max
+        seq = [x]
 
-        a = torch.randint(self.nb_values, (nb,))
-        b = torch.randint(self.nb_values, (nb,))
-        c = torch.randint(self.nb_values, (nb,))
+        for t in range(self.nb_time_steps-1):
+            v = torch.rand(x.size()) * (x > 0).float()
+            u = (v.max(dim=-1,keepdim=True).values == v).long()
+            n = (u*x*torch.rand(x.size())).long().sum(dim=-1,keepdim=True) // 2
+            x = x + n * (u.roll(shifts=-1,dims=-1) - 2 * u + u.roll(shifts=1,dims=-1))
+            seq.append(x)
 
-        while True:
-            to_compute = torch.logical_or(u>=v-self.len_total//10,u<v-self.len_total//5)
-            to_compute =torch.logical_or(to_compute, u == 0)
-            to_compute =torch.logical_or(to_compute, v == self.len_total)
-            n = to_compute.long().sum()
-            if n == 0:
-                break
-            else:
-                u[to_compute] = torch.randint(self.len_total, (n,))
-                v[to_compute] = torch.randint(self.len_total, (n,))
+        if self.hard: seq.reverse()
 
-        while True:
-            to_compute = a==b
-            to_compute = torch.logical_or(to_compute,b==c)
-            to_compute = torch.logical_or(to_compute,a==c)
-
-            if self.global_constraint:
-                to_compute = torch.logical_or(to_compute,(a*u+b*(v-u)+c*(self.len_total-v)) // self.len_total != self.nb_values//2)
-
-            n = to_compute.long().sum()
-            if n == 0:
-                break
-            else:
-                a[to_compute] = torch.randint(self.nb_values, (n,))
-                b[to_compute] = torch.randint(self.nb_values, (n,))
-                c[to_compute] = torch.randint(self.nb_values, (n,))
-
-        assert (u>=v).long().sum() == 0
-        assert (a==b).long().sum() == 0
-        assert (a==c).long().sum() == 0
-        assert (c==b).long().sum() == 0
-
-        t = torch.arange(self.len_total)
-        seq = (t[None,:] < u[:,None]).long() * a[:,None] + \
-            (t[None,:] >= u[:,None]).long() * (t[None,:] < v[:,None]).long() * b[:,None] + \
-            (t[None,:] >= v[:,None]).long() * c[:,None]
-
+        seq = torch.cat(seq,dim=1)
         return seq,seq.new_full(seq.size(), 1, dtype=torch.int64)
 
     def compute_nb_correct(self, input, ar_mask, result):
         nb_total = result.size(0)
         nb_correct = 0
-        i = torch.arange(result.size(1), device=result.device)
 
-        for k in range(nb_total):
-            s = result[k]
-            a = s[0]
-            uu = (s != a).nonzero()
-            if uu.size(0) > 0:
-                u = uu.min()
-                b = s[u]
-                vv = torch.logical_and(s != b, i >= u).nonzero()
-                if vv.size(0) > 0:
-                    v = vv.min()
-                    c = s[v]
-                    ww = torch.logical_and(s != c, i >= v).nonzero()
-                    if ww.size(0) == 0:
-                        if not self.global_constraint or (a*u+b*(v-u)+c*(self.len_total-v)) // self.len_total == self.nb_values//2:
-                            nb_correct += 1
+        for seq in result:
+            states = list(seq.split(self.nb_state_tokens))
+            if self.hard:
+                states.reverse()
+
+            d = states[0]
+            j=d.sort(descending=True).indices[0]
+            e=d.new_zeros(d.size())
+            e[j]=self.value_max
+            if (d-e).abs().sum() == 0:
+                nb_errors = 0
+                for k in range(len(states)-1):
+                    d=states[k]-states[k+1]
+                    j=d.sort(descending=True).indices[0]
+                    e=d.new_zeros(d.size())
+                    e[j]=d[j]
+                    e[(j+1)%e.size(0)]=-d[j]//2
+                    e[(j-1)%e.size(0)]=-d[j]//2
+                    if (d-e).abs().sum() > 0:
+                        nb_errors += 1
+                if nb_errors == 0:
+                    nb_correct += 1
 
         return nb_total, nb_correct
 
     def seq2str(self, seq):
-        return " ".join( [ f"{x:02d}" for x in seq ] )
+        return " | ".join( [ " ".join([f"{x:02d}" for x in s ]) for s in seq.split(self.nb_state_tokens) ] )
 
 ####################
 
@@ -287,6 +260,7 @@ class ProblemAddition(Problem):
 
 
 if __name__ == "__main__":
-    p = ProblemTwoCuts(12)
+    p = ProblemDegradation(hard=False)
     s, m = p.generate_sequences(10000)
+    print(p.seq2str(s[0]))
     print(p.compute_nb_correct(None, None, s))

@@ -33,7 +33,7 @@ parser.add_argument(
     "--task",
     type=str,
     default="twotargets",
-    help="byheart, learnop, guessop, twocuts, twotargets, addition, picoclvr, mnist, maze, snake, stack, expr, rpl, grid, qmlp",
+    help="byheart, learnop, guessop, degradation, twotargets, addition, picoclvr, mnist, maze, snake, stack, expr, rpl, grid, qmlp",
 )
 
 parser.add_argument("--log_filename", type=str, default="train.log", help=" ")
@@ -162,7 +162,7 @@ parser.add_argument("--expr_input_file", type=str, default=None)
 ##############################
 # Misc
 
-parser.add_argument("--twocuts_no_global", action="store_true", default=False)
+parser.add_argument("--degradation_hard", action="store_true", default=False)
 
 ######################################################################
 
@@ -254,7 +254,7 @@ default_task_args = {
         "nb_train_samples": 50000,
         "nb_test_samples": 10000,
     },
-    "twocuts": {
+    "degradation": {
         "model": "37M",
         "batch_size": 25,
         "nb_train_samples": 100000,
@@ -414,9 +414,9 @@ elif args.task == "twotargets":
         device=device,
     )
 
-elif args.task == "twocuts":
+elif args.task == "degradation":
     task = tasks.SandBox(
-        problem=problems.ProblemTwoCuts(global_constraint = not args.twocuts_no_global),
+        problem=problems.ProblemDegradation(hard=args.degradation_hard),
         nb_train_samples=args.nb_train_samples,
         nb_test_samples=args.nb_test_samples,
         batch_size=args.batch_size,
