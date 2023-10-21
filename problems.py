@@ -26,7 +26,7 @@ class Problem:
 
 
 class ProblemDegradation(Problem):
-    def __init__(self, nb_state_tokens=5, nb_time_steps=5, value_max=25, hard=False):
+    def __init__(self, nb_state_tokens=7, nb_time_steps=10, value_max=100, hard=False):
         self.nb_state_tokens = nb_state_tokens
         self.nb_time_steps = nb_time_steps
         self.value_max = value_max
@@ -263,5 +263,6 @@ class ProblemAddition(Problem):
 if __name__ == "__main__":
     p = ProblemDegradation(hard=False)
     s, m = p.generate_sequences(10000)
-    print(p.seq2str(s[0]))
+    for x in s[:100]:
+        print(p.seq2str(x))
     print(p.compute_nb_correct(None, None, s))
