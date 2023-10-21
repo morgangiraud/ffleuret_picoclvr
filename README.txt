@@ -1,3 +1,8 @@
+18.10.2023
+
+./main.py --task=qmlp --model=352M --nb_train_samples=250000 --result_dir=results_qmlp_352M --batch_size=2
+
+~11h per epoch on 3090 Ti
 
 ======================================================================
 For the stack experiment:

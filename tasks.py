@@ -110,13 +110,14 @@ class SandBox(Task):
 
         self.nb_codes = max(self.train_input.max(), self.test_input.max()) + 1
 
+
         # A bit of paranoia never hurts
         assert (
             self.nb_codes <= max_nb_codes
             and self.train_input.min() >= 0
             and self.test_input.min() >= 0
-            and tuple(self.train_ar_mask.unique()) == (0, 1)
-            and tuple(self.test_ar_mask.unique()) == (0, 1)
+            and tuple(x.item() for x in self.train_ar_mask.unique()) in { (0,), (1,), (0,1) }
+            and tuple(x.item() for x in self.test_ar_mask.unique()) in { (0,), (1,), (0,1) }
         )
 
     def batches(self, split="train", nb_to_use=-1, desc=None):
@@ -160,8 +161,10 @@ class SandBox(Task):
                         f"               {n_epoch} ground truth {self.problem.seq2str(st)}"
                     )
 
-            nb_total = ar_mask.sum().item()
-            nb_correct = ((result == input).long() * ar_mask).sum().item()
+            nb_total, nb_correct = self.problem.compute_nb_correct(input, ar_mask, result)
+
+            # nb_total = ar_mask.sum().item()
+            # nb_correct = ((result == input).long() * ar_mask).sum().item()
 
             return nb_total, nb_correct
 

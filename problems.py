@@ -17,6 +17,96 @@ class Problem:
     def seq2str(self, seq):
         return "[NOT IMPLEMENTED]"
 
+    def compute_nb_correct(self, input, ar_mask, result):
+        nb_total = ar_mask.sum().item()
+        nb_correct = ((result == input).long() * ar_mask).sum().item()
+        return nb_total, nb_correct
+
+####################
+
+
+class ProblemTwoCuts(Problem):
+    def __init__(self, len_total=50, nb_values=100, global_constraint=True):
+        self.len_total = len_total
+        self.nb_values = nb_values
+        self.global_constraint = global_constraint
+
+    def generate_sequences_internal(self, nb):
+        return u,v,a,b,c
+
+    def generate_sequences(self,nb):
+
+        u = torch.randint(self.len_total, (nb,))
+        v = torch.randint(self.len_total, (nb,))
+
+        a = torch.randint(self.nb_values, (nb,))
+        b = torch.randint(self.nb_values, (nb,))
+        c = torch.randint(self.nb_values, (nb,))
+
+        while True:
+            to_compute = torch.logical_or(u>=v-self.len_total//10,u<v-self.len_total//5)
+            to_compute =torch.logical_or(to_compute, u == 0)
+            to_compute =torch.logical_or(to_compute, v == self.len_total)
+            n = to_compute.long().sum()
+            if n == 0:
+                break
+            else:
+                u[to_compute] = torch.randint(self.len_total, (n,))
+                v[to_compute] = torch.randint(self.len_total, (n,))
+
+        while True:
+            to_compute = a==b
+            to_compute = torch.logical_or(to_compute,b==c)
+            to_compute = torch.logical_or(to_compute,a==c)
+
+            if self.global_constraint:
+                to_compute = torch.logical_or(to_compute,(a*u+b*(v-u)+c*(self.len_total-v)) // self.len_total != self.nb_values//2)
+
+            n = to_compute.long().sum()
+            if n == 0:
+                break
+            else:
+                a[to_compute] = torch.randint(self.nb_values, (n,))
+                b[to_compute] = torch.randint(self.nb_values, (n,))
+                c[to_compute] = torch.randint(self.nb_values, (n,))
+
+        assert (u>=v).long().sum() == 0
+        assert (a==b).long().sum() == 0
+        assert (a==c).long().sum() == 0
+        assert (c==b).long().sum() == 0
+
+        t = torch.arange(self.len_total)
+        seq = (t[None,:] < u[:,None]).long() * a[:,None] + \
+            (t[None,:] >= u[:,None]).long() * (t[None,:] < v[:,None]).long() * b[:,None] + \
+            (t[None,:] >= v[:,None]).long() * c[:,None]
+
+        return seq,seq.new_full(seq.size(), 1, dtype=torch.int64)
+
+    def compute_nb_correct(self, input, ar_mask, result):
+        nb_total = result.size(0)
+        nb_correct = 0
+        i = torch.arange(result.size(1), device=result.device)
+
+        for k in range(nb_total):
+            s = result[k]
+            a = s[0]
+            uu = (s != a).nonzero()
+            if uu.size(0) > 0:
+                u = uu.min()
+                b = s[u]
+                vv = torch.logical_and(s != b, i >= u).nonzero()
+                if vv.size(0) > 0:
+                    v = vv.min()
+                    c = s[v]
+                    ww = torch.logical_and(s != c, i >= v).nonzero()
+                    if ww.size(0) == 0:
+                        if not self.global_constraint or (a*u+b*(v-u)+c*(self.len_total-v)) // self.len_total == self.nb_values//2:
+                            nb_correct += 1
+
+        return nb_total, nb_correct
+
+    def seq2str(self, seq):
+        return " ".join( [ f"{x:02d}" for x in seq ] )
 
 ####################
 
@@ -197,7 +287,6 @@ class ProblemAddition(Problem):
 
 
 if __name__ == "__main__":
-    p = ProblemTwoTargets(12, 4)
-    s, m = p.generate_sequences(10)
-    for x in s:
-        print(p.seq2str(x))
+    p = ProblemTwoCuts(12)
+    s, m = p.generate_sequences(10000)
+    print(p.compute_nb_correct(None, None, s))
