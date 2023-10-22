@@ -24,6 +24,8 @@ class Problem:
 
 
 ####################
+
+
 class ProblemDegradation(Problem):
     def __init__(self, nb_state_tokens=5, nb_time_steps=12, value_max=25, hard=False):
         assert value_max // nb_state_tokens >= 2
