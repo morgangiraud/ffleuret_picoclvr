@@ -164,6 +164,8 @@ parser.add_argument("--expr_input_file", type=str, default=None)
 
 parser.add_argument("--mixing_hard", action="store_true", default=False)
 
+parser.add_argument("--mixing_deterministic_start", action="store_true", default=False)
+
 ######################################################################
 
 args = parser.parse_args()
@@ -416,7 +418,9 @@ elif args.task == "twotargets":
 
 elif args.task == "mixing":
     task = tasks.SandBox(
-        problem=problems.ProblemMixing(hard=args.mixing_hard),
+        problem=problems.ProblemMixing(
+            hard=args.mixing_hard, random_start=not args.mixing_deterministic_start
+        ),
         nb_train_samples=args.nb_train_samples,
         nb_test_samples=args.nb_test_samples,
         batch_size=args.batch_size,
