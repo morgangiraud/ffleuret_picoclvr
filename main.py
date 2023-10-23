@@ -160,7 +160,7 @@ parser.add_argument("--expr_result_max", type=int, default=99)
 parser.add_argument("--expr_input_file", type=str, default=None)
 
 ##############################
-# Misc
+# Mixing
 
 parser.add_argument("--mixing_hard", action="store_true", default=False)
 
