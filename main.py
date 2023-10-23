@@ -348,6 +348,8 @@ def log_string(s):
     sys.stdout.flush()
 
 
+log_string(f"argv {' '.join(sys.argv)}")
+
 for n in vars(args):
     log_string(f"args.{n} {getattr(args, n)}")
 
