@@ -33,7 +33,7 @@ parser.add_argument(
     "--task",
     type=str,
     default="twotargets",
-    help="byheart, learnop, guessop, mixing, twotargets, addition, picoclvr, mnist, maze, snake, stack, expr, rpl, grid, qmlp",
+    help="byheart, learnop, guessop, mixing, memory, twotargets, addition, picoclvr, mnist, maze, snake, stack, expr, rpl, grid, qmlp",
 )
 
 parser.add_argument("--log_filename", type=str, default="train.log", help=" ")
@@ -256,6 +256,12 @@ default_task_args = {
         "nb_train_samples": 50000,
         "nb_test_samples": 10000,
     },
+    "memory": {
+        "model": "4M",
+        "batch_size": 100,
+        "nb_train_samples": 5000,
+        "nb_test_samples": 1000,
+    },
     "mixing": {
         "model": "37M",
         "batch_size": 25,
@@ -284,6 +290,13 @@ default_model_args = {
         "dim_hidden": 32,
         "nb_heads": 2,
         "nb_blocks": 2,
+    },
+    "4M": {
+        "dim_model": 256,
+        "dim_keys": 32,
+        "dim_hidden": 1024,
+        "nb_heads": 4,
+        "nb_blocks": 6,
     },
     "37M": {
         "dim_model": 512,
@@ -411,6 +424,16 @@ elif args.task == "guessop":
 elif args.task == "twotargets":
     task = tasks.SandBox(
         problem=problems.ProblemTwoTargets(),
+        nb_train_samples=args.nb_train_samples,
+        nb_test_samples=args.nb_test_samples,
+        batch_size=args.batch_size,
+        logger=log_string,
+        device=device,
+    )
+
+elif args.task == "memory":
+    task = tasks.SandBox(
+        problem=problems.ProblemMemory(),
         nb_train_samples=args.nb_train_samples,
         nb_test_samples=args.nb_test_samples,
         batch_size=args.batch_size,

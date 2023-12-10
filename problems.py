@@ -110,6 +110,48 @@ class ProblemDegradation(Problem):
 ####################
 
 
+class ProblemMemory(Problem):
+    def __init__(self, len_total=25):
+        self.len_total = len_total
+        self.max_len_pattern = 5
+        self.nb_noise_tokens = 10
+        self.start_pattern_token = 0
+        self.end_pattern_token = 1
+        self.start_result_token = 2
+        self.end_result_token = 3
+        self.token_string = "[]<>" + "".join(
+            [chr(ord("a") + k) for k in range(self.nb_noise_tokens)]
+        )
+
+    def generate_sequences(self, nb):
+        sequences = (
+            torch.randint(self.nb_noise_tokens, (nb, self.len_total))
+            + self.end_result_token
+            + 1
+        )
+        len_patterns = torch.randint(self.max_len_pattern, (nb,)) + 1
+        pattern_positions = torch.randint(
+            self.len_total - (5 + 2 * self.max_len_pattern), (nb,)
+        )
+        k = self.len_total - (3 + self.max_len_pattern)
+        for i in range(nb):
+            l = len_patterns[i]
+            j = pattern_positions[i]
+            sequences[i, j] = self.start_pattern_token
+            sequences[i, j + l + 2] = self.end_pattern_token
+            sequences[i, k] = self.start_result_token
+            sequences[i, k + l + 2] = self.end_result_token
+            sequences[i, k + 1 : k + 2 + l] = sequences[i, j + 1 : j + 2 + l]
+
+        j = torch.arange(self.len_total)[None, :]
+        ar_mask = (j > k).long() * (j <= k + 1 + len_patterns[:, None]).long()
+
+        return sequences, ar_mask
+
+    def seq2str(self, seq):
+        return "".join(self.token_string[x.item()] for x in seq)
+
+
 class ProblemTwoTargets(Problem):
     def __init__(self, len_total=10, len_targets=3):
         assert len_targets >= 3
@@ -325,22 +367,38 @@ class ProblemMixing(Problem):
         return y
 
     def start_error(self, x):
-        i = torch.arange(self.height, device=x.device).reshape(1, -1, 1).expand_as(x)
-        j = torch.arange(self.width, device=x.device).reshape(1, 1, -1).expand_as(x)
+        if self.random_start:
+            i = (
+                torch.arange(self.height, device=x.device)
+                .reshape(1, -1, 1)
+                .expand_as(x)
+            )
+            j = torch.arange(self.width, device=x.device).reshape(1, 1, -1).expand_as(x)
 
-        ri = (
-            (x == self.height * self.width).long().sum(dim=-1).argmax(-1).view(-1, 1, 1)
-        )
-        rj = (
-            (x == self.height * self.width).long().sum(dim=-2).argmax(-1).view(-1, 1, 1)
-        )
+            ri = (
+                (x == self.height * self.width)
+                .long()
+                .sum(dim=-1)
+                .argmax(-1)
+                .view(-1, 1, 1)
+            )
+            rj = (
+                (x == self.height * self.width)
+                .long()
+                .sum(dim=-2)
+                .argmax(-1)
+                .view(-1, 1, 1)
+            )
 
-        m = 1 - torch.logical_or(i == ri, j == rj).long().flatten(1)
+            m = 1 - torch.logical_or(i == ri, j == rj).long().flatten(1)
+        else:
+            m = 1
 
         x = x.flatten(1)
         u = torch.arange(self.height * self.width, device=x.device).reshape(1, -1)
 
         d = (x - (m * u + (1 - m) * self.height * self.width)).abs().sum(-1)
+
         return d
 
     def moves(self, x):
@@ -424,7 +482,8 @@ class ProblemMixing(Problem):
 ####################
 
 if __name__ == "__main__":
-    p = ProblemMixing()
+    p = ProblemMixing(height=3, width=3, random_start=False)
+
     s, m = p.generate_sequences(10000)
     for x in s[:5]:
         print(p.seq2str(x))

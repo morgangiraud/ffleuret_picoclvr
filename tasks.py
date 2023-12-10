@@ -125,6 +125,12 @@ class SandBox(Task):
             (0, 1),
         }
 
+        if logger is not None:
+            for s, a in zip(self.train_input[:100], self.train_ar_mask[:100]):
+                logger(f"train_sequences {self.problem.seq2str(s)}")
+                a = "".join(["01"[x.item()] for x in a])
+                logger(f"                {a}")
+
     def batches(self, split="train", nb_to_use=-1, desc=None):
         assert split in {"train", "test"}
         input = self.train_input if split == "train" else self.test_input
@@ -206,30 +212,30 @@ class SandBox(Task):
                 with torch.autograd.no_grad():
                     t = model.training
                     model.eval()
-                    model.record_attention(True)
+                    # model.record_attention(True)
                     model(BracketedSequence(input))
                     model.train(t)
-                    ram = model.retrieve_attention()
-                    model.record_attention(False)
+                    # ram = model.retrieve_attention()
+                    # model.record_attention(False)
 
-                tokens_output = [c for c in self.problem.seq2str(input[0])]
-                tokens_input = ["n/a"] + tokens_output[:-1]
-                for n_head in range(ram[0].size(1)):
-                    filename = os.path.join(
-                        result_dir, f"sandbox_attention_{k}_h{n_head}.pdf"
-                    )
-                    attention_matrices = [m[0, n_head] for m in ram]
-                    save_attention_image(
-                        filename,
-                        tokens_input,
-                        tokens_output,
-                        attention_matrices,
-                        k_top=10,
-                        # min_total_attention=0.9,
-                        token_gap=12,
-                        layer_gap=50,
-                    )
-                    logger(f"wrote {filename}")
+                # tokens_output = [c for c in self.problem.seq2str(input[0])]
+                # tokens_input = ["n/a"] + tokens_output[:-1]
+                # for n_head in range(ram[0].size(1)):
+                # filename = os.path.join(
+                # result_dir, f"sandbox_attention_{k}_h{n_head}.pdf"
+                # )
+                # attention_matrices = [m[0, n_head] for m in ram]
+                # save_attention_image(
+                # filename,
+                # tokens_input,
+                # tokens_output,
+                # attention_matrices,
+                # k_top=10,
+                ##min_total_attention=0.9,
+                # token_gap=12,
+                # layer_gap=50,
+                # )
+                # logger(f"wrote {filename}")
 
 
 ######################################################################
