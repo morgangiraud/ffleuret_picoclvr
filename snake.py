@@ -5,13 +5,10 @@
 
 # Written by Francois Fleuret <francois@fleuret.org>
 
-import torch, torchvision
-import torch.nn.functional as F
+import torch
 
 
-def generate_sequences(
-    nb, height, width, nb_colors, length, prompt_length, device=torch.device("cpu")
-):
+def generate_sequences(nb, height, width, nb_colors, length, prompt_length, device=torch.device("cpu")):
     worlds = torch.randint(nb_colors, (nb, height, width), device=device)
     world_prior_visits = torch.zeros(nb, height, width, device=device)
 
@@ -23,11 +20,9 @@ def generate_sequences(
         ),
         1,
     )
-    snake_direction = torch.randint(4, (nb,), device=device)
+    snake_direction = torch.randint(4, (nb, ), device=device)
     sequences = torch.empty(nb, 2 * length, device=device, dtype=torch.int64)
-    sequences_prior_visits = torch.zeros(
-        nb, 2 * length, device=device, dtype=torch.int64
-    )
+    sequences_prior_visits = torch.zeros(nb, 2 * length, device=device, dtype=torch.int64)
     i = torch.arange(nb, device=device)  # [:,None]
 
     for l in range(length):
@@ -51,18 +46,12 @@ def generate_sequences(
 
         # nb x 3
         val = torch.logical_and(
-            torch.logical_and(
-                snake_next_position[:, :, 0] >= 0, snake_next_position[:, :, 0] < height
-            ),
-            torch.logical_and(
-                snake_next_position[:, :, 1] >= 0, snake_next_position[:, :, 1] < width
-            ),
+            torch.logical_and(snake_next_position[:, :, 0] >= 0, snake_next_position[:, :, 0] < height),
+            torch.logical_and(snake_next_position[:, :, 1] >= 0, snake_next_position[:, :, 1] < width),
         ).float()
         val = (
             # The multiplicative factors bias toward moving forward
-            torch.rand_like(val)
-            * val
-            * torch.tensor([[1.0, 2.0, 1.0]], device=device)
+            torch.rand_like(val) * val * torch.tensor([[1.0, 2.0, 1.0]], device=device)
         )
 
         # nb
@@ -70,9 +59,7 @@ def generate_sequences(
         snake_direction = snake_next_direction[i, j]
 
         sequences[:, 2 * l] = worlds[i, snake_position[:, 0], snake_position[:, 1]] + 4
-        sequences_prior_visits[:, 2 * l] = world_prior_visits[
-            i, snake_position[:, 0], snake_position[:, 1]
-        ]
+        sequences_prior_visits[:, 2 * l] = world_prior_visits[i, snake_position[:, 0], snake_position[:, 1]]
         if l < prompt_length:
             world_prior_visits[i, snake_position[:, 0], snake_position[:, 1]] += 1
         sequences[:, 2 * l + 1] = snake_direction

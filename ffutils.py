@@ -5,11 +5,12 @@
 
 # Written by Francois Fleuret <francois@fleuret.org>
 
-import torch
-import sys, contextlib
+import sys
+import contextlib
 
 import torch
 from torch import Tensor
+from torch.utils._python_dispatch import TorchDispatchMode
 
 ######################################################################
 
@@ -27,8 +28,6 @@ def evaluation(*models):
 
 ######################################################################
 
-from torch.utils._python_dispatch import TorchDispatchMode
-
 
 def hasNaN(x):
     if torch.is_tensor(x):
@@ -41,14 +40,14 @@ def hasNaN(x):
 
 
 class NaNDetect(TorchDispatchMode):
+
     def __torch_dispatch__(self, func, types, args, kwargs=None):
         kwargs = kwargs or {}
         res = func(*args, **kwargs)
 
         if hasNaN(res):
-            raise RuntimeError(
-                f"Function {func}(*{args}, **{kwargs}) " "returned a NaN"
-            )
+            raise RuntimeError(f"Function {func}(*{args}, **{kwargs}) "
+                               "returned a NaN")
         return res
 
 
@@ -92,7 +91,6 @@ def activate_tensorstack():
 ######################################################################
 
 if __name__ == "__main__":
-    import torch
 
     def dummy(a, b):
         print(a @ b)
