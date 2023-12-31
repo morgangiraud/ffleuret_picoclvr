@@ -5,9 +5,7 @@
 
 # Written by Francois Fleuret <francois@fleuret.org>
 
-import math
-import torch, torchvision
-import torch.nn.functional as F
+import torch
 
 name_shapes = ["A", "B", "C", "D", "E", "F"]
 
@@ -17,6 +15,7 @@ name_colors = ["red", "yellow", "blue", "green", "white", "purple"]
 
 
 class GridFactory:
+
     def __init__(
         self,
         size=6,
@@ -31,9 +30,9 @@ class GridFactory:
         self.nb_questions = nb_questions
 
     def generate_scene(self):
-        nb_items = torch.randint(self.max_nb_items - 1, (1,)).item() + 2
-        col = torch.full((self.size * self.size,), -1)
-        shp = torch.full((self.size * self.size,), -1)
+        nb_items = torch.randint(self.max_nb_items - 1, (1, )).item() + 2
+        col = torch.full((self.size * self.size, ), -1)
+        shp = torch.full((self.size * self.size, ), -1)
         a = torch.randperm(len(name_colors) * len(name_shapes))[:nb_items]
         col[:nb_items] = a % len(name_colors)
         shp[:nb_items] = a // len(name_colors)
@@ -46,8 +45,8 @@ class GridFactory:
         col, shp = scene
 
         descriptions = []
-        nb_transformations = torch.randint(self.max_nb_transformations + 1, (1,)).item()
-        transformations = torch.randint(5, (nb_transformations,))
+        nb_transformations = torch.randint(self.max_nb_transformations + 1, (1, )).item()
+        transformations = torch.randint(5, (nb_transformations, ))
 
         for t in transformations:
             if t == 0:
@@ -178,19 +177,15 @@ class GridFactory:
             if a < 10:
                 break
 
-        true = [true[k] for k in torch.randperm(len(true))[: self.nb_questions]]
-        false = [false[k] for k in torch.randperm(len(false))[: self.nb_questions]]
+        true = [true[k] for k in torch.randperm(len(true))[:self.nb_questions]]
+        false = [false[k] for k in torch.randperm(len(false))[:self.nb_questions]]
         true = ["<prop> " + q + " <ans> true" for q in true]
         false = ["<prop> " + q + " <ans> false" for q in false]
 
         union = true + false
-        questions = [union[k] for k in torch.randperm(len(union))[: self.nb_questions]]
+        questions = [union[k] for k in torch.randperm(len(union))[:self.nb_questions]]
 
-        result = " ".join(
-            ["<obj> " + x for x in self.grid_positions(start_scene)]
-            + transformations
-            + questions
-        )
+        result = " ".join(["<obj> " + x for x in self.grid_positions(start_scene)] + transformations + questions)
 
         return start_scene, scene, result
 
@@ -210,7 +205,7 @@ class GridFactory:
 ######################################################################
 
 if __name__ == "__main__":
-    import time
+    # import time
 
     grid_factory = GridFactory()
 

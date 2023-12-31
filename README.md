@@ -1,3 +1,12 @@
+# PICOCLVR
+
+> From https://fleuret.org/cgi-bin/gitweb/gitweb.cgi?p=picoclvr.git;a=summary
+
+## Note from Morgan
+Used here: https://colab.research.google.com/drive/18jAN68pTguwDQRKKCaQPkFvMtkTP_LjQ
+
+## Original notes
+
 18.10.2023
 
 ./main.py --task=qmlp --model=352M --nb_train_samples=250000 --result_dir=results_qmlp_352M --batch_size=2

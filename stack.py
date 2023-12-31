@@ -5,7 +5,7 @@
 
 # Written by Francois Fleuret <francois@fleuret.org>
 
-import torch, torchvision
+import torch
 
 ######################################################################
 
@@ -13,25 +13,21 @@ import torch, torchvision
 # CODE_VAL=val + 2 * nb_stacks
 
 
-def generate_sequences(
-    nb, nb_steps, nb_stacks, nb_digits, values=None, device=torch.device("cpu")
-):
+def generate_sequences(nb, nb_steps, nb_stacks, nb_digits, values=None, device=torch.device("cpu")):
     stack = torch.empty(nb, nb_stacks, nb_steps, dtype=torch.int64)
     stack_counts = torch.zeros(nb, nb_stacks, dtype=torch.int64)
     k = torch.arange(nb)
     result = torch.empty(nb, (1 + nb_digits) * nb_steps, dtype=torch.int64)
-    recorded_stack_counts = torch.zeros(
-        nb, (1 + nb_digits) * nb_steps, dtype=torch.int64
-    )
+    recorded_stack_counts = torch.zeros(nb, (1 + nb_digits) * nb_steps, dtype=torch.int64)
 
     for t in range(nb_steps):
-        op = torch.randint(2, (nb,))
-        st = torch.randint(nb_stacks, (nb,))
+        op = torch.randint(2, (nb, ))
+        st = torch.randint(nb_stacks, (nb, ))
         op = op * (stack_counts[k, st] > 0)
         if values is None:
-            val_push = torch.randint(10**nb_digits, (nb,))
+            val_push = torch.randint(10**nb_digits, (nb, ))
         else:
-            val_push = values[torch.randint(values.size(0), (nb,))]
+            val_push = values[torch.randint(values.size(0), (nb, ))]
         val_pop = stack[
             k,
             st,
@@ -43,9 +39,8 @@ def generate_sequences(
         stack_counts[k[op == 1], st[op == 1]] -= 1
         result[:, (1 + nb_digits) * t] = st * 2 + op
         for d in range(nb_digits):
-            result[:, (1 + nb_digits) * t + 1 + d] = (
-                (op * val_pop + (1 - op) * val_push) // (10**d)
-            ) % 10 + 2 * nb_stacks
+            result[:, (1 + nb_digits) * t + 1 + d] = ((op * val_pop + (1 - op) * val_push) //
+                                                      (10**d)) % 10 + 2 * nb_stacks
 
     return result.to(device), recorded_stack_counts.to(device)
 

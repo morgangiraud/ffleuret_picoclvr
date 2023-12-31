@@ -5,14 +5,18 @@
 
 # Written by Francois Fleuret <francois@fleuret.org>
 
-import math, sys, argparse, time, tqdm, os
+import math
+import sys
+import argparse
+import time
+import os
 
-import torch, torchvision
-from torch import nn
+import torch
 from torch.nn import functional as F
 
-import ffutils
-import mygpt, tasks, problems
+import mygpt
+import tasks
+import problems
 
 ######################################################################
 
@@ -33,7 +37,8 @@ parser.add_argument(
     "--task",
     type=str,
     default="twotargets",
-    help="byheart, learnop, guessop, mixing, memory, twotargets, addition, picoclvr, mnist, maze, snake, stack, expr, rpl, grid, qmlp",
+    help="""byheart, learnop, guessop, mixing, memory, twotargets, addition, \\
+        picoclvr, mnist, maze, snake, stack, expr, rpl, grid, qmlp""",
 )
 
 parser.add_argument("--log_filename", type=str, default="train.log", help=" ")
@@ -46,7 +51,8 @@ parser.add_argument("--max_percents_of_test_in_train", type=int, default=1)
 
 ########################################
 
-parser.add_argument("--nb_epochs", type=int, default=25)
+nb_epochs_default = 25
+parser.add_argument("--nb_epochs", type=int, default=nb_epochs_default)
 
 parser.add_argument("--batch_size", type=int, default=None)
 
@@ -366,7 +372,6 @@ log_string(f"argv {' '.join(sys.argv)}")
 for n in vars(args):
     log_string(f"args.{n} {getattr(args, n)}")
 
-
 ######################################################################
 
 
@@ -374,17 +379,10 @@ def picoclvr_pruner_horizontal_green(p):
     return not ("green" in p and ("left" in p or "right" in p))
 
 
-picoclvr_pruner_train = (
-    picoclvr_pruner_horizontal_green
-    if args.picocvlr_prune_properties in {"train+eval"}
-    else None
-)
+picoclvr_pruner_train = (picoclvr_pruner_horizontal_green if args.picocvlr_prune_properties in {"train+eval"} else None)
 
-picoclvr_pruner_eval = (
-    (lambda p: not picoclvr_pruner_horizontal_green(p))
-    if args.picocvlr_prune_properties in {"train+eval", "eval"}
-    else None
-)
+picoclvr_pruner_eval = ((lambda p: not picoclvr_pruner_horizontal_green(p))
+                        if args.picocvlr_prune_properties in {"train+eval", "eval"} else None)
 
 ######################################################################
 
@@ -409,7 +407,6 @@ elif args.task == "learnop":
         device=device,
     )
 
-
 elif args.task == "guessop":
     task = tasks.SandBox(
         problem=problems.ProblemGuessOperator(),
@@ -419,7 +416,6 @@ elif args.task == "guessop":
         logger=log_string,
         device=device,
     )
-
 
 elif args.task == "twotargets":
     task = tasks.SandBox(
@@ -443,9 +439,7 @@ elif args.task == "memory":
 
 elif args.task == "mixing":
     task = tasks.SandBox(
-        problem=problems.ProblemMixing(
-            hard=args.mixing_hard, random_start=not args.mixing_deterministic_start
-        ),
+        problem=problems.ProblemMixing(hard=args.mixing_hard, random_start=not args.mixing_deterministic_start),
         nb_train_samples=args.nb_train_samples,
         nb_test_samples=args.nb_test_samples,
         batch_size=args.batch_size,
@@ -602,7 +596,7 @@ log_string(f"nb_parameters {nb_parameters} ({int(nb_parameters/1e6)}M)")
 nb_epochs_finished = 0
 
 if args.no_checkpoint:
-    log_string(f"not trying to load checkpoint.")
+    log_string("not trying to load checkpoint.")
 
 else:
     try:
@@ -619,7 +613,7 @@ else:
     except FileNotFoundError:
         log_string("starting from scratch.")
 
-    except:
+    except Exception:
         log_string("error when loading the checkpoint.")
         exit(1)
 
@@ -677,9 +671,8 @@ if args.max_percents_of_test_in_train >= 0:
         f"data_check {nb_in_train*100/nb_test:.02f}% ({nb_in_train}/{nb_test}) of test samples are in the train set"
     )
 
-    assert (
-        nb_in_train <= args.max_percents_of_test_in_train * nb_test / 100
-    ), f"More than {args.max_percents_of_test_in_train}% of test samples are in the train set"
+    assert (nb_in_train <= args.max_percents_of_test_in_train * nb_test
+            / 100), f"More than {args.max_percents_of_test_in_train}% of test samples are in the train set"
 
 ##############################
 
@@ -689,12 +682,7 @@ if args.learning_rate_schedule == "cos":
         u = n_epoch / args.nb_epochs * math.pi
         learning_rate_schedule[n_epoch] = args.learning_rate * 0.5 * (1 + math.cos(u))
 else:
-    u = {
-        int(k): float(v)
-        for k, v in [
-            tuple(x.split(":")) for x in args.learning_rate_schedule.split(",")
-        ]
-    }
+    u = {int(k): float(v) for k, v in [tuple(x.split(":")) for x in args.learning_rate_schedule.split(",")]}
 
     learning_rate_schedule = {}
     learning_rate = args.learning_rate
