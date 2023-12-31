@@ -13,7 +13,7 @@ import torchvision
 v_empty, v_wall, v_start, v_goal, v_path = 0, 1, 2, 3, 4
 
 
-def create_maze(h=11, w=17, nb_walls=8):
+def create_maze_old(h=11, w=17, nb_walls=8):
     assert h % 2 == 1 and w % 2 == 1
 
     a, k = 0, 0
@@ -27,7 +27,7 @@ def create_maze(h=11, w=17, nb_walls=8):
                 m[:, 0] = 1
                 m[:, -1] = 1
 
-            r = torch.rand(4)
+            r = torch.rand(4)  # [p(vertical), coord[3]]
 
             if r[0] <= 0.5:
                 i1, i2, j = (
@@ -35,8 +35,11 @@ def create_maze(h=11, w=17, nb_walls=8):
                     int((r[2] * h).item()),
                     int((r[3] * w).item()),
                 )
+                # Make sure those are even
                 i1, i2, j = i1 - i1 % 2, i2 - i2 % 2, j - j % 2
+                # Order them
                 i1, i2 = min(i1, i2), max(i1, i2)
+                # 1 < wall length <= h / 2 && no walls on the path
                 if i2 - i1 > 1 and i2 - i1 <= h / 2 and m[i1:i2 + 1, j].sum() <= 1:
                     m[i1:i2 + 1, j] = 1
                     break
@@ -53,12 +56,63 @@ def create_maze(h=11, w=17, nb_walls=8):
                     break
             a += 1
 
+            # Restart the process if we couldn't make a valid maze in 10 * nb_walls
             if a > 10 * nb_walls:
                 a, k = 0, 0
 
         k += 1
 
     return m
+
+
+def create_maze(h=11, w=17, nb_walls=8):
+    assert h % 2 == 1 and w % 2 == 1
+
+    while True:
+        k = 0
+
+        #  Borders
+        m = torch.zeros(h, w, dtype=torch.int64)
+        m[0, :] = 1
+        m[-1, :] = 1
+        m[:, 0] = 1
+        m[:, -1] = 1
+
+        max_try = 20 * nb_walls
+        r = torch.rand(max_try)  # [max_try, p(vertical) + 3 coords]
+
+        is_vert = (r > 0.5).unsqueeze(1).repeat(1, 3)
+        vert = torch.concat((
+            torch.randint(0, h, (max_try, 2)), 
+            torch.randint(0, w, (max_try, 1))
+        ), dim=1)
+        horiz = torch.concat((
+            torch.randint(0, w, (max_try, 2)), 
+            torch.randint(0, h, (max_try, 1))
+        ), dim=1)
+        possible_walls = torch.where(is_vert, vert, horiz)
+        
+        possible_walls = possible_walls - possible_walls % 2
+        starts = torch.minimum(possible_walls[:, 0], possible_walls[:, 1])
+        ends = torch.maximum(possible_walls[:, 0], possible_walls[:, 1])
+
+        wall_lens = ends - starts
+        possible_walls = possible_walls[wall_lens > 1]
+        is_vert = is_vert[wall_lens > 1]
+        for i in range(possible_walls.shape[0]):
+            a, b, c = starts[i], ends[i], possible_walls[i, 2]
+
+            if is_vert[i, 0]:
+                if wall_lens[i] <= h / 2 and m[a:b + 1, c].sum() <= 1:
+                    m[a:b + 1, c] = 1
+                    k += 1
+            else:
+                if wall_lens[i] <= w / 2 and m[c, a:b + 1].sum() <= 1:
+                    m[c, a:b + 1] = 1
+                    k += 1
+
+            if k >= nb_walls:
+                return m
 
 
 ######################################################################
@@ -252,6 +306,8 @@ def save_image(
         img = img * path_correct + torch.tensor([255, 0, 0]).view(1, -1, 1, 1) * (1 - path_correct)
 
     img = img.expand(-1, -1, imgs.size(3) + 2, 1 + imgs.size(1) * (1 + imgs.size(4))).clone()
+    if img.shape[0] == 1:
+        img = img.repeat(imgs.shape[0], 1, 1, 1)
 
     print(f"{img.size()=} {imgs.size()=}")
 
@@ -274,7 +330,17 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     mazes, paths, policies = create_maze_data(8)
     mazes, paths = mazes.to(device), paths.to(device)
-    save_image("test.png", mazes=mazes, target_paths=paths, predicted_paths=paths)
-    print(path_correctness(mazes, paths))
+    path_correct = path_correctness(mazes, paths)
+    path_optimal = path_optimality(paths, paths)
+    print(f"path_correct: {path_correct}")
+    print(f"path_optimal: {path_optimal}")
+    save_image(
+        "tmp/maze-test.png",
+        mazes=mazes,
+        target_paths=paths,
+        predicted_paths=paths,
+        path_correct=path_correct,
+        path_optimal=path_optimal
+    )
 
 ######################################################################
