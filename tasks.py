@@ -14,10 +14,8 @@ from torch.nn import functional as F
 
 from mygpt import BracketedSequence
 
-try:
-    from graph import save_attention_image
-except ImportError:
-    save_attention_image = None
+# from graph import save_attention_image
+save_attention_image = None
 
 ######################################################################
 
@@ -202,9 +200,7 @@ class SandBox(Task):
 
         logger(f"main_test_accuracy {n_epoch} {test_nb_correct/test_nb_total}")
 
-        if save_attention_image is None:
-            logger("no save_attention_image (is pycairo installed?)")
-        else:
+        if save_attention_image is not None:
             for k in range(10):
                 ns = torch.randint(self.test_input.size(0), (1,)).item()
                 input = self.test_input[ns : ns + 1].clone()
@@ -1566,6 +1562,42 @@ class Grid(Task):
 
         logger(f"test_performance {n_epoch} {nb_total=} {nb_correct=}")
         logger(f"main_test_accuracy {n_epoch} {nb_correct / nb_total}")
+
+        if n_epoch == 5 or n_epoch == 10 or n_epoch == 20:
+            if save_attention_image is None:
+                logger("no save_attention_image (is pycairo installed?)")
+            else:
+                for k in range(10):
+                    ns = k  # torch.randint(self.test_input.size(0), (1,)).item()
+                    input = self.test_input[ns : ns + 1].clone()
+                    with torch.autograd.no_grad():
+                        t = model.training
+                        model.eval()
+                        model.record_attention(True)
+                        model(BracketedSequence(input))
+                        model.train(t)
+                        ram = model.retrieve_attention()
+                        model.record_attention(False)
+
+                    tokens_output = [self.id2token[t.item()] for t in input[0]]
+                    tokens_input = ["n/a"] + tokens_output[:-1]
+                    for n_head in range(ram[0].size(1)):
+                        filename = os.path.join(
+                            result_dir,
+                            f"sandbox_attention_epoch_{n_epoch}_sample_{k}_head_{n_head}.pdf",
+                        )
+                        attention_matrices = [m[0, n_head] for m in ram]
+                        save_attention_image(
+                            filename,
+                            tokens_input,
+                            tokens_output,
+                            attention_matrices,
+                            k_top=10,
+                            # min_total_attention=0.9,
+                            token_gap=12,
+                            layer_gap=50,
+                        )
+                        logger(f"wrote {filename}")
 
 
 ######################################################################
