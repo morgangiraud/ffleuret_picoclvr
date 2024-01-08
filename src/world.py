@@ -30,11 +30,7 @@ class Box:
 
     def collision(self, scene):
         for c in scene:
-            if (
-                self is not c
-                and max(self.x, c.x) <= min(self.x + self.w, c.x + c.w)
-                and max(self.y, c.y) <= min(self.y + self.h, c.y + c.h)
-            ):
+            if self is not c and max(self.x, c.x) <= min(self.x + self.w, c.x + c.w) and max(self.y, c.y) <= min(self.y + self.h, c.y + c.h):
                 return True
         return False
 
@@ -241,14 +237,7 @@ def scene2tensor(xh, yh, scene, size):
     ctx.close_path()
     ctx.fill()
 
-    return (
-        pixel_map[None, :, :, :3]
-        .flip(-1)
-        .permute(0, 3, 1, 2)
-        .long()
-        .mul(Box.nb_rgb_levels)
-        .floor_divide(256)
-    )
+    return pixel_map[None, :, :, :3].flip(-1).permute(0, 3, 1, 2).long().mul(Box.nb_rgb_levels).floor_divide(256)
 
 
 def random_scene(nb_insert_attempts=3):
@@ -311,13 +300,7 @@ def generate_episode(steps, size=64):
                         x, y = b.x, b.y
                         b.x += dx
                         b.y += dy
-                        if (
-                            b.x < 0
-                            or b.y < 0
-                            or b.x + b.w > 1
-                            or b.y + b.h > 1
-                            or b.collision(scene)
-                        ):
+                        if b.x < 0 or b.y < 0 or b.x + b.w > 1 or b.y + b.h > 1 or b.collision(scene):
                             b.x, b.y = x, y
                         else:
                             xh += dx
@@ -402,9 +385,7 @@ def create_data_and_processors(
             x = x.to(device)
             z = encoder(x)
             ze_bool = (quantizer(z) >= 0).long()
-            output = (
-                ze_bool.permute(0, 2, 3, 1).reshape(ze_bool.size(0), -1, ze_bool.size(1)) * p
-            ).sum(-1)
+            output = (ze_bool.permute(0, 2, 3, 1).reshape(ze_bool.size(0), -1, ze_bool.size(1)) * p).sum(-1)
 
             seq.append(output)
 
@@ -418,9 +399,7 @@ def create_data_and_processors(
             zd_bool = (seq[:, :, None] // p) % 2
             zd_bool = zd_bool.reshape(zd_bool.size(0), z_h, z_w, -1).permute(0, 3, 1, 2)
             logits = decoder(zd_bool * 2.0 - 1.0)
-            logits = logits.reshape(logits.size(0), -1, 3, logits.size(2), logits.size(3)).permute(
-                0, 2, 3, 4, 1
-            )
+            logits = logits.reshape(logits.size(0), -1, 3, logits.size(2), logits.size(3)).permute(0, 2, 3, 4, 1)
             output = torch.distributions.categorical.Categorical(logits=logits / T).sample()
 
             frames.append(output)

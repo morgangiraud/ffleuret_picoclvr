@@ -11,6 +11,7 @@
 # for auto-regression.
 
 import math
+from typing import Optional
 
 import torch
 
@@ -37,10 +38,13 @@ from torch.nn import functional as F
 
 
 class BracketedSequence:
-    def __init__(self, x, first=None, nb=None):
+    def __init__(self, x: torch.Tensor, first: int = 0, nb: Optional[int] = None):
         self.x = x
-        self.first = 0 if first is None else first
-        self.nb = x.size(1) if nb is None else nb
+
+        assert type(first) == int
+        self.first = first
+
+        self.nb = nb if type(nb) == int and nb > 0 else x.size(1)
 
     def slice(self):
         return self.x[:, self.first : self.first + self.nb]
@@ -53,17 +57,22 @@ class BracketedSequence:
 
 
 class CacheWrapper(nn.Module):
-    def __init__(self, *f):
+    def __init__(self, *f: nn.Module):
         super().__init__()
         self.f = f[0] if len(f) == 1 else nn.Sequential(*f)
+        self.cache_y: Optional[torch.Tensor] = None
 
-    def forward(self, bs):
-        if bs.first == 0:
-            y = self.f(bs.slice())
-            self.cache_y = y.new(*((y.size(0), bs.x.size(1)) + y.size()[2:]))
-            self.cache_y[:, bs.first : bs.first + bs.nb] = y
-        else:
-            self.cache_y[:, bs.first : bs.first + bs.nb] = self.f(bs.slice())
+    def forward(self, bs: BracketedSequence):
+        sliced_x = bs.slice()  # B, T_nb, dims...
+        sliced_y = self.f(sliced_x)  # B, T_nb, dims...
+
+        if self.cache_y is None or bs.first == 0:
+            y_size: torch.Size = sliced_y.size()
+            B = y_size[0]
+            T = bs.x.size(1)
+            self.cache_y = torch.zeros(*((B, T) + y_size[2:]))  # B, T, dims...
+
+        self.cache_y[:, bs.first : bs.first + bs.nb] = sliced_y
 
         return BracketedSequence(self.cache_y, bs.first, bs.nb)
 
@@ -72,11 +81,11 @@ class CacheWrapper(nn.Module):
 
 
 class WithResidual(nn.Module):
-    def __init__(self, *f):
+    def __init__(self, *f: nn.Module):
         super().__init__()
         self.f = f[0] if len(f) == 1 else nn.Sequential(*f)
 
-    def forward(self, bs):
+    def forward(self, bs: BracketedSequence):
         return BracketedSequence(bs.x + self.f(bs).x, bs.first, bs.nb)
 
 
@@ -84,13 +93,13 @@ class WithResidual(nn.Module):
 
 
 class AddPositionalEncoding(nn.Module):
-    def __init__(self, len_max):
+    def __init__(self, len_max: int):
         super().__init__()
         self.len_max = len_max
 
     # [Vaswani et al 2018] PE_{t,2i} = sin(t/(L^{2i/D})), PE_{t,2i+1} = cos(t/(L^{2i/D}))
 
-    def forward(self, bs):
+    def forward(self, bs: BracketedSequence):
         if bs.first == 0:
             t = torch.arange(bs.x.size(1), dtype=bs.x.dtype, device=bs.x.device)[:, None]
             j = torch.arange(bs.x.size(2), dtype=bs.x.dtype, device=bs.x.device)[None, :]
@@ -98,9 +107,7 @@ class AddPositionalEncoding(nn.Module):
             self.pe = torch.sin(t / (self.len_max ** ((j - k) / bs.x.size(2))) + math.pi / 2 * k)
             self.cache_y = bs.x.new(bs.x.size())
 
-        self.cache_y[:, bs.first : bs.first + bs.nb] = (
-            bs.slice() + self.pe[bs.first : bs.first + bs.nb]
-        )
+        self.cache_y[:, bs.first : bs.first + bs.nb] = bs.slice() + self.pe[bs.first : bs.first + bs.nb]
 
         return BracketedSequence(self.cache_y, bs.first, bs.nb)
 
@@ -111,16 +118,16 @@ class AddPositionalEncoding(nn.Module):
 class QKVAttention(nn.Module):
     def __init__(
         self,
-        dim_in,
-        dim_qk,
-        dim_v,
-        nb_heads=1,
-        causal=False,
-        attention_dropout=0.0,
+        dim_in: int,
+        dim_qk: int,
+        dim_v: int,
+        nb_heads: int = 1,
+        causal: bool = False,
+        attention_dropout: float = 0.0,
     ):
         super().__init__()
 
-        def randw(*d):
+        def randw(*d: int):
             return nn.Parameter(torch.randn(*d) / math.sqrt(d[-1]))
 
         self.causal = causal
@@ -132,40 +139,27 @@ class QKVAttention(nn.Module):
         self.w_v = randw(nb_heads, dim_v, dim_in)
         self.w_o = randw(dim_v * nb_heads, dim_in)
 
-    def forward(self, bs_q):
+    def forward(self, bs_q: BracketedSequence):
         x_q = bs_q.x
 
-        assert (
-            self.causal or bs_q.complete()
-        ), "Partial evaluation is only possible for causal models"
+        assert self.causal or bs_q.complete(), "Partial evaluation is only possible for causal models"
 
         if bs_q.first == 0:
-            self.cache_k = x_q.new_zeros(
-                x_q.size(0), self.w_k.size(0), x_q.size(1), self.w_k.size(1)
-            )
-            self.cache_v = x_q.new_zeros(
-                x_q.size(0), self.w_v.size(0), x_q.size(1), self.w_v.size(1)
-            )
+            self.cache_k = x_q.new_zeros(x_q.size(0), self.w_k.size(0), x_q.size(1), self.w_k.size(1))
+            self.cache_v = x_q.new_zeros(x_q.size(0), self.w_v.size(0), x_q.size(1), self.w_v.size(1))
             self.cache_y = x_q.new_zeros(x_q.size(0), x_q.size(1), self.w_o.size(1))
 
         q = torch.einsum("ntc,hdc->nhtd", x_q[:, bs_q.first : bs_q.first + bs_q.nb], self.w_q)
 
-        self.cache_k[:, :, bs_q.first : bs_q.first + bs_q.nb] = torch.einsum(
-            "ntc,hdc->nhtd", x_q[:, bs_q.first : bs_q.first + bs_q.nb], self.w_k
-        )
-        self.cache_v[:, :, bs_q.first : bs_q.first + bs_q.nb] = torch.einsum(
-            "ntc,hdc->nhtd", x_q[:, bs_q.first : bs_q.first + bs_q.nb], self.w_v
-        )
+        self.cache_k[:, :, bs_q.first : bs_q.first + bs_q.nb] = torch.einsum("ntc,hdc->nhtd", x_q[:, bs_q.first : bs_q.first + bs_q.nb], self.w_k)
+        self.cache_v[:, :, bs_q.first : bs_q.first + bs_q.nb] = torch.einsum("ntc,hdc->nhtd", x_q[:, bs_q.first : bs_q.first + bs_q.nb], self.w_v)
 
-        a = torch.einsum(
-            "nhtd,nhsd->nhts", q, self.cache_k[:, :, : bs_q.first + bs_q.nb]
-        ) / math.sqrt(self.w_q.size(1))
+        a = torch.einsum("nhtd,nhsd->nhts", q, self.cache_k[:, :, : bs_q.first + bs_q.nb]) / math.sqrt(self.w_q.size(1))
 
         if self.causal:
             if bs_q.first == 0:
                 self.cache_attzero = (
-                    torch.arange(x_q.size(1), device=q.device)[None, None, :, None]
-                    < torch.arange(x_q.size(1), device=q.device)[None, None, None, :]
+                    torch.arange(x_q.size(1), device=q.device)[None, None, :, None] < torch.arange(x_q.size(1), device=q.device)[None, None, None, :]
                 )
             a = a.masked_fill(
                 self.cache_attzero[:, :, bs_q.first : bs_q.first + bs_q.nb, : bs_q.first + bs_q.nb],
@@ -179,9 +173,7 @@ class QKVAttention(nn.Module):
 
         a = F.dropout(a, self.attention_dropout, self.training)
 
-        y = torch.einsum("nhts,nhsd->nthd", a, self.cache_v[:, :, : bs_q.first + bs_q.nb]).flatten(
-            2
-        )
+        y = torch.einsum("nhts,nhsd->nthd", a, self.cache_v[:, :, : bs_q.first + bs_q.nb]).flatten(2)
 
         self.cache_y[:, bs_q.first : bs_q.first + bs_q.nb] = y @ self.w_o
 
@@ -194,15 +186,15 @@ class QKVAttention(nn.Module):
 class MyGPT(nn.Module):
     def __init__(
         self,
-        vocabulary_size,
-        dim_model,
-        dim_keys,
-        dim_hidden,
-        nb_heads,
-        nb_blocks,
-        causal=False,
-        dropout=0.0,
-        len_max=1e5,
+        vocabulary_size: int,
+        dim_model: int,
+        dim_keys: int,
+        dim_hidden: int,
+        nb_heads: int,
+        nb_blocks: int,
+        causal: bool = False,
+        dropout: float = 0.0,
+        len_max: int = int(1e5),
     ):
         super().__init__()
 
@@ -218,7 +210,13 @@ class MyGPT(nn.Module):
         for b in range(nb_blocks):
             trunk_blocks += [
                 WithResidual(
-                    CacheWrapper(nn.LayerNorm((dim_model,))),
+                    CacheWrapper(
+                        nn.LayerNorm(
+                            [
+                                dim_model,
+                            ]
+                        )
+                    ),
                     QKVAttention(
                         dim_in=dim_model,
                         dim_qk=dim_keys,
@@ -230,7 +228,11 @@ class MyGPT(nn.Module):
                 ),
                 WithResidual(
                     CacheWrapper(
-                        nn.LayerNorm((dim_model,)),
+                        nn.LayerNorm(
+                            [
+                                dim_model,
+                            ]
+                        ),
                         nn.Linear(in_features=dim_model, out_features=dim_hidden),
                         nn.ReLU(),
                         nn.Linear(in_features=dim_hidden, out_features=dim_model),
@@ -251,7 +253,7 @@ class MyGPT(nn.Module):
                     m.bias.zero_()
                     m.weight.fill_(1.0)
 
-    def forward(self, bs):
+    def forward(self, bs: BracketedSequence):
         bs = BracketedSequence(F.pad(bs.x, (1, -1)), bs.first, bs.nb)
         bs = self.embedding(bs)
         bs = self.trunk(bs)
@@ -262,14 +264,10 @@ class MyGPT(nn.Module):
     # 1s where tokens should be generated. The others are kept
     # unchanged.
 
-    def masked_inplace_autoregression(
-        self, input, ar_mask, forbidden_tokens=None, deterministic_synthesis=False
-    ):
+    def masked_inplace_autoregression(self, input: torch.Tensor, ar_mask: torch.Tensor, forbidden_tokens=None, deterministic_synthesis=False):
         to_generate = (ar_mask.sum(0) > 0).nonzero()
         if to_generate.min() > 0:
-            self(
-                BracketedSequence(input, 0, to_generate.min())
-            )  # Needed to initialize the model's cache
+            self(BracketedSequence(input, 0, int(to_generate.min().item())))  # Needed to initialize the model's cache
         for s in range(to_generate.min(), to_generate.max() + 1):
             output = self(BracketedSequence(input, s, 1)).x
             logits = output[:, s]
