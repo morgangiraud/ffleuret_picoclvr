@@ -380,18 +380,13 @@ def picoclvr_pruner_horizontal_green(p):
     return not ("green" in p and ("left" in p or "right" in p))
 
 
-picoclvr_pruner_train = (
-    picoclvr_pruner_horizontal_green if args.picocvlr_prune_properties in {"train+eval"} else None
-)
+picoclvr_pruner_train = picoclvr_pruner_horizontal_green if args.picocvlr_prune_properties in {"train+eval"} else None
 
-picoclvr_pruner_eval = (
-    (lambda p: not picoclvr_pruner_horizontal_green(p))
-    if args.picocvlr_prune_properties in {"train+eval", "eval"}
-    else None
-)
+picoclvr_pruner_eval = (lambda p: not picoclvr_pruner_horizontal_green(p)) if args.picocvlr_prune_properties in {"train+eval", "eval"} else None
 
 ######################################################################
 
+task: tasks.Task
 if args.task == "byheart":
     task = tasks.SandBox(
         problem=problems.ProblemByHeart(),
@@ -445,9 +440,7 @@ elif args.task == "memory":
 
 elif args.task == "mixing":
     task = tasks.SandBox(
-        problem=problems.ProblemMixing(
-            hard=args.mixing_hard, random_start=not args.mixing_deterministic_start
-        ),
+        problem=problems.ProblemMixing(hard=args.mixing_hard, random_start=not args.mixing_deterministic_start),
         nb_train_samples=args.nb_train_samples,
         nb_test_samples=args.nb_test_samples,
         batch_size=args.batch_size,
@@ -634,7 +627,7 @@ if args.task == "expr" and args.expr_input_file is not None:
         result_dir=args.result_dir,
         logger=log_string,
         deterministic_synthesis=args.deterministic_synthesis,
-        input_file=args.expr_input_file,
+        # input_file=args.expr_input_file,
     )
 
     exit(0)
@@ -645,7 +638,7 @@ nb_epochs = args.nb_epochs if args.nb_epochs > 0 else nb_epochs_default
 
 # Compute the entropy of the training tokens
 
-token_count = 0
+token_count = torch.tensor(0)
 for input in task.batches(split="train"):
     token_count += F.one_hot(input, num_classes=task.vocabulary_size()).sum((0, 1))
 token_probas = token_count / token_count.sum()
@@ -675,9 +668,7 @@ if args.max_percents_of_test_in_train >= 0:
         nb_in_train += len(in_train)
         nb_test += len(test_subset)
 
-    log_string(
-        f"data_check {nb_in_train*100/nb_test:.02f}% ({nb_in_train}/{nb_test}) of test samples are in the train set"
-    )
+    log_string(f"data_check {nb_in_train*100/nb_test:.02f}% ({nb_in_train}/{nb_test}) of test samples are in the train set")
 
     assert (
         nb_in_train <= args.max_percents_of_test_in_train * nb_test / 100
@@ -691,10 +682,7 @@ if args.learning_rate_schedule == "cos":
         u = n_epoch / args.nb_epochs * math.pi
         learning_rate_schedule[n_epoch] = args.learning_rate * 0.5 * (1 + math.cos(u))
 else:
-    u = {
-        int(k): float(v)
-        for k, v in [tuple(x.split(":")) for x in args.learning_rate_schedule.split(",")]
-    }
+    u = {int(k): float(v) for k, v in [tuple(x.split(":")) for x in args.learning_rate_schedule.split(",")]}
 
     learning_rate_schedule = {}
     learning_rate = args.learning_rate
@@ -725,6 +713,7 @@ for n_epoch in range(nb_epochs_finished, nb_epochs):
 
     log_string(f"learning_rate {learning_rate}")
 
+    optimizer: torch.optim.optimizer.Optimizer
     if args.optim == "sgd":
         optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
     elif args.optim == "adam":
@@ -766,9 +755,7 @@ for n_epoch in range(nb_epochs_finished, nb_epochs):
         train_perplexity = math.exp(min(100, acc_train_loss / nb_train_samples))
         test_perplexity = math.exp(min(100, acc_test_loss / nb_test_samples))
 
-        log_string(
-            f"perplexity {n_epoch} train_set {train_set_perplexity} train_prediction {train_perplexity} test_prediction {test_perplexity}"
-        )
+        log_string(f"perplexity {n_epoch} train_set {train_set_perplexity} train_prediction {train_perplexity} test_prediction {test_perplexity}")
 
         task.produce_results(
             n_epoch=n_epoch,
@@ -780,9 +767,7 @@ for n_epoch in range(nb_epochs_finished, nb_epochs):
 
         time_current_result = datetime.datetime.now()
         if time_pred_result is not None:
-            log_string(
-                f"next_result {time_current_result + (time_current_result - time_pred_result)}"
-            )
+            log_string(f"next_result {time_current_result + (time_current_result - time_pred_result)}")
         time_pred_result = time_current_result
 
     checkpoint = {

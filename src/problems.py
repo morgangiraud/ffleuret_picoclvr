@@ -39,11 +39,7 @@ class ProblemDegradation(Problem):
         for t in range(self.nb_time_steps - 1):
             v = (torch.rand(x.size()).sort(dim=-1).indices + 1) * (x >= 2).long()
             u = (v.max(dim=-1, keepdim=True).values == v).long()
-            n = (
-                (u * x)
-                .minimum(2 + torch.randint(self.value_max // 4 - 2, x.size()))
-                .sum(dim=-1, keepdim=True)
-            )
+            n = (u * x).minimum(2 + torch.randint(self.value_max // 4 - 2, x.size())).sum(dim=-1, keepdim=True)
             m = 1 + ((n - 1) * torch.rand(n.size())).long()
             x = x + m * u.roll(shifts=-1, dims=-1) - n * u + (n - m) * u.roll(shifts=1, dims=-1)
             seq.append(x)
@@ -73,12 +69,7 @@ class ProblemDegradation(Problem):
                 for k in range(len(states) - 1):
                     d = states[k + 1] - states[k]
                     j = d.sort(descending=False).indices[0]
-                    if (
-                        d[j] == 0
-                        or d[j] > self.value_max // 4
-                        or d[(j + 1) % e.size(0)] <= 0
-                        or d[(j + 1) % e.size(0)] >= -d[j]
-                    ):
+                    if d[j] == 0 or d[j] > self.value_max // 4 or d[(j + 1) % e.size(0)] <= 0 or d[(j + 1) % e.size(0)] >= -d[j]:
                         nb_errors += 1
                     else:
                         e.zero_()
@@ -93,9 +84,7 @@ class ProblemDegradation(Problem):
         return nb_total, nb_correct
 
     def seq2str(self, seq):
-        return " | ".join(
-            [" ".join([f"{x:02d}" for x in s]) for s in seq.split(self.nb_state_tokens)]
-        )
+        return " | ".join([" ".join([f"{x:02d}" for x in s]) for s in seq.split(self.nb_state_tokens)])
 
 
 ####################
@@ -110,14 +99,10 @@ class ProblemMemory(Problem):
         self.end_pattern_token = 1
         self.start_result_token = 2
         self.end_result_token = 3
-        self.token_string = "[]<>" + "".join(
-            [chr(ord("a") + k) for k in range(self.nb_noise_tokens)]
-        )
+        self.token_string = "[]<>" + "".join([chr(ord("a") + k) for k in range(self.nb_noise_tokens)])
 
     def generate_sequences(self, nb):
-        sequences = (
-            torch.randint(self.nb_noise_tokens, (nb, self.len_total)) + self.end_result_token + 1
-        )
+        sequences = torch.randint(self.nb_noise_tokens, (nb, self.len_total)) + self.end_result_token + 1
         len_patterns = torch.randint(self.max_len_pattern, (nb,)) + 1
         pattern_positions = torch.randint(self.len_total - (5 + 2 * self.max_len_pattern), (nb,))
         k = self.len_total - (3 + self.max_len_pattern)
@@ -213,9 +198,7 @@ class ProblemLearnOperator(Problem):
     def generate_sequences(self, nb):
         nb_operators = torch.randint(self.operators.size(0), (nb,))
         operators = self.operators[nb_operators]
-        nb_operators = (
-            nb_operators[:, None] // 10 ** torch.arange(self.len_nb_operator - 1, -1, -1)
-        ) % 10
+        nb_operators = (nb_operators[:, None] // 10 ** torch.arange(self.len_nb_operator - 1, -1, -1)) % 10
         marker1 = torch.full((nb, 1), 10)
         source = torch.rand(nb, 10).sort(dim=1).indices[:, : self.len_source]
         marker2 = torch.full((nb, 1), 11)
@@ -273,11 +256,7 @@ class ProblemAddition(Problem):
     def tensorize(self, strings):
         len_max = max([len(x) for x in strings])
         return torch.cat(
-            [
-                torch.tensor(
-                    [[self.char2id[c] for c in s + "$" * (len_max - len(s))] for s in strings]
-                )
-            ],
+            [torch.tensor([[self.char2id[c] for c in s + "$" * (len_max - len(s))] for s in strings])],
             0,
         )
 
@@ -387,10 +366,7 @@ class ProblemMixing(Problem):
         return seq, seq.new_full(seq.size(), 1, dtype=torch.int64)
 
     def compute_nb_correct(self, input, ar_mask, result):
-        a = [
-            x.reshape(result.size(0), self.height, self.width)
-            for x in result.split(self.height * self.width, dim=1)
-        ]
+        a = [x.reshape(result.size(0), self.height, self.width) for x in result.split(self.height * self.width, dim=1)]
         if self.hard:
             a.reverse()
 
@@ -410,12 +386,7 @@ class ProblemMixing(Problem):
     def seq2str(self, seq):
         return " | ".join(
             [
-                " ".join(
-                    [
-                        "-".join([f"{x:02d}" if x < self.height * self.width else "**" for x in s])
-                        for s in r.split(self.width)
-                    ]
-                )
+                " ".join(["-".join([f"{x:02d}" if x < self.height * self.width else "**" for x in s]) for s in r.split(self.width)])
                 for r in seq.split(self.height * self.width)
             ]
         )

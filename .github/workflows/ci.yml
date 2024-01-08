@@ -21,6 +21,11 @@ jobs:
           pip install ruff
           ruff --output-format=github src
         continue-on-error: true
+      - name: Type check with Mypy
+        run: |
+          pip install mypy
+          make typecheck
+        continue-on-error: true
       - name: Test with pytest
         run: |
           pip install pytest

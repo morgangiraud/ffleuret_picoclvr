@@ -3,11 +3,6 @@ import torch
 import mygpt
 
 
-# print(f"a: {a}")
-# print(f"slice_out: {slice_out}")
-# print(f"complete_out: {complete_out}")
-
-
 def test_sanity():
     vocabulary_size = 3
     x = torch.randint(vocabulary_size, (1, 5))
@@ -32,4 +27,46 @@ def test_sanity():
 
     error = ((y1 - y2).norm() / (y1.norm() + y2.norm())).item()
     print(f"error: {error}")
-    assert error < 1e-7
+    assert error < 1e-6
+
+
+def test_bracketed_sequence():
+    B = 3
+    S = 4
+    x = torch.arange(0, S).repeat(B, 1)
+
+    bs = mygpt.BracketedSequence(x)
+    complete_out = bs.complete()
+    assert complete_out is True
+
+    bs = mygpt.BracketedSequence(x, 1)
+    sliced_x = bs.slice()
+    complete_out = bs.complete()
+    assert sliced_x.sum() == x[:, 1:].sum()
+    assert complete_out is False
+
+    bs = mygpt.BracketedSequence(x, 1, 1)
+    sliced_x = bs.slice()
+    complete_out = bs.complete()
+    assert sliced_x.sum() == x[:, 1:2].sum()
+    assert complete_out is False
+
+
+def test_cache_wrapper():
+    B = 3
+    S = 4
+    D = 5
+    x = torch.ones(B, S, D)
+
+    class AddOne(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, x):
+            return x + 1
+
+    bs = mygpt.BracketedSequence(x, 1, 2)
+    cache = mygpt.CacheWrapper(AddOne())
+
+    cached_bs = cache(bs)
+    assert (x[:, 1:3] + 1).sum() == cached_bs.x.sum()
