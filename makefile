@@ -56,25 +56,17 @@ docs: ## generate Sphinx HTML documentation, including API docs
 # CI
 ###
 yapf:
-	yapf --style tox.ini -i *.py
+	yapf --style tox.ini -i ./src/*.py
 
 lint:
-	flake8 .
+	flake8 ./src
 
 typecheck:
-	mypy $(CURRENT_DIR)/.
+	mypy $(CURRENT_DIR)/src
 
 test:
-	pytest --disable-pytest-warnings tests
+	pytest --disable-pytest-warnings src
 
 ci: lint typecheck test
 
 .PHONY: typecheck yapf lint test ci
-
-###
-# Deploy
-###
-zip:
-	python setup.py sdist --format zip
-
-.PHONY: zip

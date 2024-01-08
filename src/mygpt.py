@@ -297,32 +297,3 @@ class MyGPT(nn.Module):
         return a
 
 
-######################################################################
-
-if __name__ == "__main__":
-    print("Basic check.")
-
-    vocabulary_size = 3
-    x = torch.randint(vocabulary_size, (1, 5))
-
-    model = MyGPT(
-        vocabulary_size=vocabulary_size,
-        dim_model=4,
-        dim_keys=2,
-        dim_hidden=2,
-        nb_heads=2,
-        nb_blocks=2,
-        dropout=0.1,
-        causal=True,
-    )
-
-    model.eval()
-    y1 = model(BracketedSequence(x)).x
-    y2 = torch.randn_like(y1)
-    for s in range(x.size(1)):
-        z = model(BracketedSequence(x, s, 1))
-        y2[:, s] = z.slice()
-
-    print(f"error={((y1 - y2).norm() / (y1.norm() + y2.norm())).item()}")
-
-######################################################################

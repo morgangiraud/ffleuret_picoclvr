@@ -17,6 +17,6 @@ prefix="--nb_epochs=25"
 
 for task in byheart learnop guessop twotargets addition picoclvr maze snake stack expr rpl
 do
-    [[ ! -d results_${task} ]] && ./main.py ${prefix} --task=${task}
+    [[ ! -d results_${task} ]] && ./src/main.py ${prefix} --task=${task}
 done
 
