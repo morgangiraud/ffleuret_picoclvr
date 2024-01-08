@@ -1,0 +1,13 @@
+# https://docs.astral.sh/ruff/settings/
+
+[tool.ruff]
+# Set the maximum line length to 79.
+line-length = 160
+
+[tool.ruff.lint]
+select = ["E", "F"]
+ignore = [
+    "E401", # Multiple imports on one line
+    "E741", # Ambiguous variable name
+    "E721", # Do not compare types, use `isinstance()`
+]

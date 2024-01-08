@@ -4,7 +4,6 @@ charset-normalizer
 colorama
 exceptiongroup
 filelock
-flake8
 fsspec
 gmpy2
 idna
@@ -12,7 +11,6 @@ importlib-metadata
 iniconfig
 Jinja2
 MarkupSafe
-mccabe
 mpmath
 mypy
 mypy-extensions
@@ -20,11 +18,8 @@ networkx
 numpy
 packaging
 Pillow
-platformdirs
 pluggy
 psutil
-pycodestyle
-pyflakes
 PySocks
 pytest
 requests
@@ -35,5 +30,4 @@ torchvision
 tqdm
 typing_extensions
 urllib3
-yapf
 zipp

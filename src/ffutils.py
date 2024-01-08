@@ -40,14 +40,12 @@ def hasNaN(x):
 
 
 class NaNDetect(TorchDispatchMode):
-
     def __torch_dispatch__(self, func, types, args, kwargs=None):
         kwargs = kwargs or {}
         res = func(*args, **kwargs)
 
         if hasNaN(res):
-            raise RuntimeError(f"Function {func}(*{args}, **{kwargs}) "
-                               "returned a NaN")
+            raise RuntimeError(f"Function {func}(*{args}, **{kwargs}) " "returned a NaN")
         return res
 
 

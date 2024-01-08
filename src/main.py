@@ -384,8 +384,11 @@ picoclvr_pruner_train = (
     picoclvr_pruner_horizontal_green if args.picocvlr_prune_properties in {"train+eval"} else None
 )
 
-picoclvr_pruner_eval = ((lambda p: not picoclvr_pruner_horizontal_green(p))
-                        if args.picocvlr_prune_properties in {"train+eval", "eval"} else None)
+picoclvr_pruner_eval = (
+    (lambda p: not picoclvr_pruner_horizontal_green(p))
+    if args.picocvlr_prune_properties in {"train+eval", "eval"}
+    else None
+)
 
 ######################################################################
 
@@ -690,8 +693,7 @@ if args.learning_rate_schedule == "cos":
 else:
     u = {
         int(k): float(v)
-        for k,
-        v in [tuple(x.split(":")) for x in args.learning_rate_schedule.split(",")]
+        for k, v in [tuple(x.split(":")) for x in args.learning_rate_schedule.split(",")]
     }
 
     learning_rate_schedule = {}

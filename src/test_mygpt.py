@@ -29,8 +29,7 @@ def test_sanity():
     for s in range(x.size(1)):
         z = model(mygpt.BracketedSequence(x, s, 1))
         y2[:, s] = z.slice()
-        
+
     error = ((y1 - y2).norm() / (y1.norm() + y2.norm())).item()
     print(f"error: {error}")
     assert error < 1e-7
-

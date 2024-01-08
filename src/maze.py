@@ -40,8 +40,8 @@ def create_maze_old(h=11, w=17, nb_walls=8):
                 # Order them
                 i1, i2 = min(i1, i2), max(i1, i2)
                 # 1 < wall length <= h / 2 && no walls on the path
-                if i2 - i1 > 1 and i2 - i1 <= h / 2 and m[i1:i2 + 1, j].sum() <= 1:
-                    m[i1:i2 + 1, j] = 1
+                if i2 - i1 > 1 and i2 - i1 <= h / 2 and m[i1 : i2 + 1, j].sum() <= 1:
+                    m[i1 : i2 + 1, j] = 1
                     break
             else:
                 i, j1, j2 = (
@@ -51,8 +51,8 @@ def create_maze_old(h=11, w=17, nb_walls=8):
                 )
                 i, j1, j2 = i - i % 2, j1 - j1 % 2, j2 - j2 % 2
                 j1, j2 = min(j1, j2), max(j1, j2)
-                if j2 - j1 > 1 and j2 - j1 <= w / 2 and m[i, j1:j2 + 1].sum() <= 1:
-                    m[i, j1:j2 + 1] = 1
+                if j2 - j1 > 1 and j2 - j1 <= w / 2 and m[i, j1 : j2 + 1].sum() <= 1:
+                    m[i, j1 : j2 + 1] = 1
                     break
             a += 1
 
@@ -82,10 +82,12 @@ def create_maze(h=11, w=17, nb_walls=8):
         r = torch.rand(max_try)  # [max_try, p(vertical) + 3 coords]
 
         is_vert = (r > 0.5).unsqueeze(1).repeat(1, 3)
-        vert = torch.concat((torch.randint(0, h, (max_try, 2)), torch.randint(0, w, (max_try, 1))),
-                            dim=1)
-        horiz = torch.concat((torch.randint(0, w, (max_try, 2)), torch.randint(0, h, (max_try, 1))),
-                             dim=1)
+        vert = torch.concat(
+            (torch.randint(0, h, (max_try, 2)), torch.randint(0, w, (max_try, 1))), dim=1
+        )
+        horiz = torch.concat(
+            (torch.randint(0, w, (max_try, 2)), torch.randint(0, h, (max_try, 1))), dim=1
+        )
         possible_walls = torch.where(is_vert, vert, horiz)
 
         possible_walls = possible_walls - possible_walls % 2
@@ -99,12 +101,12 @@ def create_maze(h=11, w=17, nb_walls=8):
             a, b, c = starts[i], ends[i], possible_walls[i, 2]
 
             if is_vert[i, 0]:
-                if wall_lens[i] <= h / 2 and m[a:b + 1, c].sum() <= 1:
-                    m[a:b + 1, c] = 1
+                if wall_lens[i] <= h / 2 and m[a : b + 1, c].sum() <= 1:
+                    m[a : b + 1, c] = 1
                     k += 1
             else:
-                if wall_lens[i] <= w / 2 and m[c, a:b + 1].sum() <= 1:
-                    m[c, a:b + 1] = 1
+                if wall_lens[i] <= w / 2 and m[c, a : b + 1].sum() <= 1:
+                    m[c, a : b + 1] = 1
                     k += 1
 
             if k >= nb_walls:
@@ -132,7 +134,8 @@ def compute_distance(walls, goal_i, goal_j):
                     dist[None, 0:-2, 1:-1],
                 ),
                 0,
-            ).min(dim=0)[0] + 1
+            ).min(dim=0)[0]
+            + 1
         )
 
         dist[1:-1, 1:-1] = torch.min(dist[1:-1, 1:-1], d)
@@ -149,7 +152,7 @@ def compute_policy(walls, goal_i, goal_j):
     distance = compute_distance(walls, goal_i, goal_j)
     distance = distance + walls.numel() * walls
 
-    value = distance.new_full((4, ) + distance.size(), walls.numel())
+    value = distance.new_full((4,) + distance.size(), walls.numel())
     value[0, :, 1:] = distance[:, :-1]  # <
     value[1, :, :-1] = distance[:, 1:]  # >
     value[2, 1:, :] = distance[:-1, :]  # ^
@@ -197,8 +200,9 @@ def mark_path(walls, i, j, goal_i, goal_j, policy):
 
 
 def path_optimality(ref_paths, paths):
-    return (ref_paths == v_path).long().flatten(1).sum(1) == (paths == v_path
-                                                              ).long().flatten(1).sum(1)
+    return (ref_paths == v_path).long().flatten(1).sum(1) == (paths == v_path).long().flatten(
+        1
+    ).sum(1)
 
 
 def path_correctness(mazes, paths):
@@ -209,11 +213,13 @@ def path_correctness(mazes, paths):
     while not pred_current.equal(current):
         pred_current.copy_(current)
         u = (current == v_start).long()
-        possible_next = (u[:, 2:, 1:-1] + u[:, 0:-2, 1:-1] + u[:, 1:-1, 2:] + u[:, 1:-1, 0:-2]
-                         > 0).long()
+        possible_next = (
+            u[:, 2:, 1:-1] + u[:, 0:-2, 1:-1] + u[:, 1:-1, 2:] + u[:, 1:-1, 0:-2] > 0
+        ).long()
         u = u[:, 1:-1, 1:-1]
-        reached += ((goal[:, 1:-1, 1:-1] * possible_next).sum((1, 2))
-                    == 1) * ((current == v_path).sum((1, 2)) == 0)
+        reached += ((goal[:, 1:-1, 1:-1] * possible_next).sum((1, 2)) == 1) * (
+            (current == v_path).sum((1, 2)) == 0
+        )
         current[:, 1:-1, 1:-1] = (1 - u) * current[:, 1:-1, 1:-1] + (v_start - v_path) * (
             possible_next * (current[:, 1:-1, 1:-1] == v_path)
         )
@@ -265,17 +271,19 @@ def save_image(
     path_correct=None,
     path_optimal=None,
 ):
-    colors = torch.tensor([
-        [255, 255, 255],  # empty
-        [0, 0, 0],  # wall
-        [0, 255, 0],  # start
-        [127, 127, 255],  # goal
-        [255, 0, 0],  # path
-    ])
+    colors = torch.tensor(
+        [
+            [255, 255, 255],  # empty
+            [0, 0, 0],  # wall
+            [0, 255, 0],  # start
+            [127, 127, 255],  # goal
+            [255, 0, 0],  # path
+        ]
+    )
 
     mazes = mazes.cpu()
 
-    c_mazes = (colors[mazes.reshape(-1)].reshape(mazes.size() + (-1, )).permute(0, 3, 1, 2))
+    c_mazes = colors[mazes.reshape(-1)].reshape(mazes.size() + (-1,)).permute(0, 3, 1, 2)
 
     imgs = c_mazes.unsqueeze(1)
 
@@ -283,8 +291,9 @@ def save_image(
         target_paths = target_paths.cpu()
 
         c_target_paths = (
-            colors[target_paths.reshape(-1)].reshape(target_paths.size()
-                                                     + (-1, )).permute(0, 3, 1, 2)
+            colors[target_paths.reshape(-1)]
+            .reshape(target_paths.size() + (-1,))
+            .permute(0, 3, 1, 2)
         )
 
         imgs = torch.cat((imgs, c_target_paths.unsqueeze(1)), 1)
@@ -292,8 +301,9 @@ def save_image(
     if predicted_paths is not None:
         predicted_paths = predicted_paths.cpu()
         c_predicted_paths = (
-            colors[predicted_paths.reshape(-1)].reshape(predicted_paths.size()
-                                                        + (-1, )).permute(0, 3, 1, 2)
+            colors[predicted_paths.reshape(-1)]
+            .reshape(predicted_paths.size() + (-1,))
+            .permute(0, 3, 1, 2)
         )
         imgs = torch.cat((imgs, c_predicted_paths.unsqueeze(1)), 1)
 
@@ -302,9 +312,7 @@ def save_image(
     # NxKxCxHxW
     if path_optimal is not None:
         path_optimal = path_optimal.cpu().long().view(-1, 1, 1, 1)
-        img = (
-            img * (1 - path_optimal) + torch.tensor([0, 255, 0]).view(1, -1, 1, 1) * path_optimal
-        )
+        img = img * (1 - path_optimal) + torch.tensor([0, 255, 0]).view(1, -1, 1, 1) * path_optimal
 
     if path_correct is not None:
         path_correct = path_correct.cpu().long().view(-1, 1, 1, 1)
@@ -320,8 +328,8 @@ def save_image(
         img[
             :,
             :,
-            1:1 + imgs.size(3),
-            1 + k * (1 + imgs.size(4)):1 + k * (1 + imgs.size(4)) + imgs.size(4),
+            1 : 1 + imgs.size(3),
+            1 + k * (1 + imgs.size(4)) : 1 + k * (1 + imgs.size(4)) + imgs.size(4),
         ] = imgs[:, k]
 
     img = img.float() / 255.0
@@ -345,7 +353,7 @@ if __name__ == "__main__":
         target_paths=paths,
         predicted_paths=paths,
         path_correct=path_correct,
-        path_optimal=path_optimal
+        path_optimal=path_optimal,
     )
 
 ######################################################################
