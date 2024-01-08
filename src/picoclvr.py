@@ -204,7 +204,7 @@ def generate(
         # pixels of nb_colors
         logits = math.log(nb_colors) * torch.arange(1, max_nb_squares + 1).float()
         dist = torch.distributions.categorical.Categorical(logits=logits)
-        nb_squares = dist.sample((1, )) + 1
+        nb_squares = dist.sample((1,)) + 1
         # nb_squares = torch.randint(max_nb_squares, (1,)) + 1
         square_position = torch.randperm(height * width)[:nb_squares]
 
@@ -226,11 +226,8 @@ def generate(
 
         # picks at most max_nb_properties at random
 
-        nb_properties = torch.randint(max_nb_properties, (1, )) + 1
-        s = (
-            " <sep> ".join([s[k] for k in torch.randperm(len(s))[:nb_properties]]) + " <img> "
-            + " ".join([f"{color_id2name[n.item()]}" for n in img])
-        )
+        nb_properties = torch.randint(max_nb_properties, (1,)) + 1
+        s = " <sep> ".join([s[k] for k in torch.randperm(len(s))[:nb_properties]]) + " <img> " + " ".join([f"{color_id2name[n.item()]}" for n in img])
 
         descr += [s]
 
@@ -253,7 +250,7 @@ def descr2img(descr, height, width):
 
     for d in descr:
         d = d.split("<img>")[1]
-        d = d.strip().split(" ")[:height * width]
+        d = d.strip().split(" ")[: height * width]
         d = d + ["<unk>"] * (height * width - len(d))
         d = [token2color(t) for t in d]
         img = torch.tensor(d).permute(1, 0).reshape(1, 3, height, width)
@@ -273,7 +270,7 @@ def descr2properties(descr, height, width):
 
     d = descr.split("<img>")
     img_tokens = d[-1] if len(d) > 1 else ""
-    img_tokens = img_tokens.strip().split(" ")[:height * width]
+    img_tokens = img_tokens.strip().split(" ")[: height * width]
     if len(img_tokens) != height * width:
         return []
 

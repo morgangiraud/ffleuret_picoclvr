@@ -68,7 +68,6 @@ def masked_inplace_autoregression(
 
 
 class Task:
-
     def batches(self, split="train"):
         pass
 
@@ -83,7 +82,6 @@ class Task:
 
 
 class SandBox(Task):
-
     def __init__(
         self,
         problem,
@@ -103,10 +101,14 @@ class SandBox(Task):
         self.train_input, self.train_ar_mask = self.problem.generate_sequences(nb_train_samples)
         self.test_input, self.test_ar_mask = self.problem.generate_sequences(nb_test_samples)
 
-        self.train_input, self.train_ar_mask = self.train_input.to(
-            device), self.train_ar_mask.to(device)
-        self.test_input, self.test_ar_mask = self.test_input.to(
-            device), self.test_ar_mask.to(device)
+        self.train_input, self.train_ar_mask = (
+            self.train_input.to(device),
+            self.train_ar_mask.to(device),
+        )
+        self.test_input, self.test_ar_mask = (
+            self.test_input.to(device),
+            self.test_ar_mask.to(device),
+        )
 
         self.nb_codes = max(self.train_input.max(), self.test_input.max()) + 1
 
@@ -115,13 +117,13 @@ class SandBox(Task):
         assert self.train_input.min() >= 0
         assert self.test_input.min() >= 0
         assert tuple(x.item() for x in self.train_ar_mask.unique()) in {
-            (0, ),
-            (1, ),
+            (0,),
+            (1,),
             (0, 1),
         }
         assert tuple(x.item() for x in self.test_ar_mask.unique()) in {
-            (0, ),
-            (1, ),
+            (0,),
+            (1,),
             (0, 1),
         }
 
@@ -147,7 +149,6 @@ class SandBox(Task):
     def produce_results(
         self, n_epoch, model, result_dir, logger, deterministic_synthesis, nmax=1000
     ):
-
         def compute_accuracy(input, ar_mask, logger=None):
             input, ar_mask = input[:nmax], ar_mask[:nmax]
             result = input.clone() * (1 - ar_mask)
@@ -184,7 +185,8 @@ class SandBox(Task):
         )
 
         test_nb_total, test_nb_correct = compute_accuracy(
-            self.test_input, self.test_ar_mask, logger)
+            self.test_input, self.test_ar_mask, logger
+        )
 
         logger(
             f"accuracy_test {n_epoch} nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%"
@@ -194,8 +196,8 @@ class SandBox(Task):
 
         if save_attention_image is not None:
             for k in range(10):
-                ns = torch.randint(self.test_input.size(0), (1, )).item()
-                input = self.test_input[ns:ns + 1].clone()
+                ns = torch.randint(self.test_input.size(0), (1,)).item()
+                input = self.test_input[ns : ns + 1].clone()
 
                 with torch.autograd.no_grad():
                     t = model.training
@@ -317,9 +319,9 @@ class PicoCLVR(Task):
     def batches(self, split="train"):
         assert split in {"train", "test"}
         input = self.train_input if split == "train" else self.test_input
-        for batch in tqdm.tqdm(input.split(self.batch_size),
-                               dynamic_ncols=True,
-                               desc=f"epoch-{split}"):
+        for batch in tqdm.tqdm(
+            input.split(self.batch_size), dynamic_ncols=True, desc=f"epoch-{split}"
+        ):
             yield self.trim(batch)
 
     def vocabulary_size(self):
@@ -333,9 +335,9 @@ class PicoCLVR(Task):
         acc_nb_results = 0
 
         for input in tqdm.tqdm(
-                self.test_input.split(self.batch_size),
-                dynamic_ncols=True,
-                desc="test-properties",
+            self.test_input.split(self.batch_size),
+            dynamic_ncols=True,
+            desc="test-properties",
         ):
             result = input.clone()
             ar_mask = (result == self.t_img).long().cumsum(dim=1).clamp(max=1)
@@ -390,15 +392,15 @@ class PicoCLVR(Task):
         primer = []
 
         for primer_descr in [
-                "red above green <sep> green top <sep> blue right of red",
-                "there is red <sep> there is yellow <sep> there is blue",
-                "red below yellow <sep> yellow below green <sep> green below blue <sep> red right <sep> yellow left <sep> green right <sep> blue left",
-                "green bottom <sep> yellow bottom <sep> green left of blue <sep> yellow right of blue <sep> blue top",
+            "red above green <sep> green top <sep> blue right of red",
+            "there is red <sep> there is yellow <sep> there is blue",
+            "red below yellow <sep> yellow below green <sep> green below blue <sep> red right <sep> yellow left <sep> green right <sep> blue left",
+            "green bottom <sep> yellow bottom <sep> green left of blue <sep> yellow right of blue <sep> blue top",
         ]:
             primer += [primer_descr + " <img>"] * nb_per_primer
 
         result = self.tensorize(primer)
-        fill = result.new_full(result.size()[:-1] + (self.height * self.width + 1, ), self.t_nul)
+        fill = result.new_full(result.size()[:-1] + (self.height * self.width + 1,), self.t_nul)
         result = torch.cat((result, fill), 1)
         ar_mask = (result == self.t_nul).long()
         masked_inplace_autoregression(
@@ -450,12 +452,11 @@ class PicoCLVR(Task):
 
 
 class MNIST(Task):
-
     def __init__(self, nb_train_samples, nb_test_samples, batch_size, device=torch.device("cpu")):
         super().__init__()
 
-        self.nb_train_samples = (nb_train_samples, )
-        self.nb_test_samples = (nb_test_samples, )
+        self.nb_train_samples = (nb_train_samples,)
+        self.nb_test_samples = (nb_test_samples,)
         self.batch_size = batch_size
         self.device = device
         data_set = torchvision.datasets.MNIST(root="./data", train=True, download=True)
@@ -501,7 +502,6 @@ class MNIST(Task):
 
 
 class Maze(Task):
-
     def map2seq(self, *m):
         return torch.cat([x.flatten(1) for x in m], 1)
 
@@ -531,8 +531,7 @@ class Maze(Task):
             height=height,
             width=width,
             nb_walls=nb_walls,
-            progress_bar=lambda x: tqdm.tqdm(
-                x, dynamic_ncols=True, desc="data-train"),
+            progress_bar=lambda x: tqdm.tqdm(x, dynamic_ncols=True, desc="data-train"),
         )
         self.train_input = self.map2seq(train_mazes.to(device), train_paths.to(device))
 
@@ -541,8 +540,7 @@ class Maze(Task):
             height=height,
             width=width,
             nb_walls=nb_walls,
-            progress_bar=lambda x: tqdm.tqdm(
-                x, dynamic_ncols=True, desc="data-test"),
+            progress_bar=lambda x: tqdm.tqdm(x, dynamic_ncols=True, desc="data-test"),
         )
         self.test_input = self.map2seq(test_mazes.to(device), test_paths.to(device))
 
@@ -573,7 +571,7 @@ class Maze(Task):
         for input in self.batches(split, nb_to_use):
             result = input.clone()
             ar_mask = result.new_zeros(result.size())
-            ar_mask[:, self.height * self.width:] = 1
+            ar_mask[:, self.height * self.width :] = 1
             result *= 1 - ar_mask
             masked_inplace_autoregression(
                 model,
@@ -589,10 +587,12 @@ class Maze(Task):
             nb_correct += path_correctness.long().sum()
             nb_total += mazes.size(0)
 
-            optimal_path_lengths = ((input[:,
-                                           self.height * self.width:] == maze.v_path).long().sum(1))
-            predicted_path_lengths = ((result[:, self.height
-                                              * self.width:] == maze.v_path).long().sum(1))
+            optimal_path_lengths = (
+                (input[:, self.height * self.width :] == maze.v_path).long().sum(1)
+            )
+            predicted_path_lengths = (
+                (result[:, self.height * self.width :] == maze.v_path).long().sum(1)
+            )
             optimal_path_lengths = optimal_path_lengths[path_correctness]
             predicted_path_lengths = predicted_path_lengths[path_correctness]
             count[optimal_path_lengths, predicted_path_lengths] += 1
@@ -600,7 +600,7 @@ class Maze(Task):
         if count.max() == 0:
             count = None
         else:
-            count = count[:count.sum(1).nonzero().max() + 1, :count.sum(0).nonzero().max() + 1]
+            count = count[: count.sum(1).nonzero().max() + 1, : count.sum(0).nonzero().max() + 1]
 
         return nb_total, nb_correct, count
 
@@ -639,7 +639,7 @@ class Maze(Task):
         input = self.test_input[:48]
         result = input.clone()
         ar_mask = result.new_zeros(result.size())
-        ar_mask[:, self.height * self.width:] = 1
+        ar_mask[:, self.height * self.width :] = 1
         result *= 1 - ar_mask
         masked_inplace_autoregression(
             model,
@@ -669,7 +669,6 @@ class Maze(Task):
 
 
 class Snake(Task):
-
     def __init__(
         self,
         nb_train_samples,
@@ -725,7 +724,6 @@ class Snake(Task):
         return self.nb_codes
 
     def produce_results(self, n_epoch, model, result_dir, logger, deterministic_synthesis):
-
         def compute_nb_correct(input, prior_visits):
             result = input.clone()
             i = torch.arange(result.size(1), device=result.device)[None, :]
@@ -750,7 +748,8 @@ class Snake(Task):
             return nb_total, nb_correct
 
         test_nb_total, test_nb_correct = compute_nb_correct(
-            self.test_input[:1000], self.test_prior_visits[:1000])
+            self.test_input[:1000], self.test_prior_visits[:1000]
+        )
 
         logger(
             f"accuracy_test {n_epoch} nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%"
@@ -763,7 +762,6 @@ class Snake(Task):
 
 
 class Stack(Task):
-
     def __init__(
         self,
         nb_train_samples,
@@ -832,7 +830,6 @@ class Stack(Task):
         return self.nb_codes
 
     def produce_results(self, n_epoch, model, result_dir, logger, deterministic_synthesis):
-
         def compute_nb_correct(input):
             result = input.clone()
             stack.remove_popped_values(result, self.nb_stacks, self.nb_digits)
@@ -864,7 +861,7 @@ class Stack(Task):
 
         ##############################################################
         # Log a few generated sequences
-        input = self.test_input[:10, :12 * (1 + self.nb_digits)]
+        input = self.test_input[:10, : 12 * (1 + self.nb_digits)]
         result = input.clone()
         stack.remove_popped_values(result, self.nb_stacks, self.nb_digits)
         ar_mask = (result != input).long()
@@ -894,13 +891,16 @@ class Stack(Task):
 
 
 class RPL(Task):
-
     def tensorize(self, sequences):
         len_max = max([len(x) for x in sequences])
         return torch.cat(
             [
-                torch.tensor([[self.token2id[str(c)] for c in s + ["<nul>"] * (len_max - len(s))]
-                              for s in sequences])
+                torch.tensor(
+                    [
+                        [self.token2id[str(c)] for c in s + ["<nul>"] * (len_max - len(s))]
+                        for s in sequences
+                    ]
+                )
             ],
             0,
         )
@@ -934,7 +934,8 @@ class RPL(Task):
                 max_input=max_input,
                 prog_len=prog_len,
                 nb_runs=nb_runs,
-            ) for _ in tqdm.tqdm(range(nb_train_samples), desc="train-data")
+            )
+            for _ in tqdm.tqdm(range(nb_train_samples), desc="train-data")
         ]
 
         test_sequences = [
@@ -944,7 +945,8 @@ class RPL(Task):
                 max_input=max_input,
                 prog_len=prog_len,
                 nb_runs=nb_runs,
-            ) for _ in tqdm.tqdm(range(nb_test_samples), desc="test-data")
+            )
+            for _ in tqdm.tqdm(range(nb_test_samples), desc="test-data")
         ]
 
         symbols = list(
@@ -969,16 +971,18 @@ class RPL(Task):
         if no_prog:
             # Excise the program from every train and test example
             k = torch.arange(self.train_input.size(1), device=self.train_input.device)[None, :]
-            p = (((self.train_input == self.t_prog).long() * k).max(1, keepdim=True).values)
+            p = ((self.train_input == self.t_prog).long() * k).max(1, keepdim=True).values
             self.train_input = (
-                self.train_input * (k <= p).long() + self.t_end * (k == p + 1).long() + self.t_nul *
-                (k > p + 1).long()
+                self.train_input * (k <= p).long()
+                + self.t_end * (k == p + 1).long()
+                + self.t_nul * (k > p + 1).long()
             )
             k = torch.arange(self.test_input.size(1), device=self.test_input.device)[None, :]
-            p = (((self.test_input == self.t_prog).long() * k).max(1, keepdim=True).values)
+            p = ((self.test_input == self.t_prog).long() * k).max(1, keepdim=True).values
             self.test_input = (
-                self.test_input * (k <= p).long() + self.t_end * (k == p + 1).long() + self.t_nul *
-                (k > p + 1).long()
+                self.test_input * (k <= p).long()
+                + self.t_end * (k == p + 1).long()
+                + self.t_nul * (k > p + 1).long()
             )
 
         if logger is not None:
@@ -1052,8 +1056,8 @@ class RPL(Task):
         def compute_nb_errors_output(input, nb_to_log=0):
             result = input.clone()
             k = torch.arange(result.size(1), device=result.device)[None, :]
-            last_output_idx = (((result == self.t_output) * k).max(dim=1, keepdim=True).values)
-            first_prog_idx = (((result == self.t_prog) * k).max(dim=1, keepdim=True).values)
+            last_output_idx = ((result == self.t_output) * k).max(dim=1, keepdim=True).values
+            first_prog_idx = ((result == self.t_prog) * k).max(dim=1, keepdim=True).values
             ar_mask = (k > last_output_idx).long() * (k < first_prog_idx).long()
             result = (1 - ar_mask) * result + ar_mask * self.t_nul
 
@@ -1073,8 +1077,8 @@ class RPL(Task):
                 correct = (one_input - one_result).abs().max() == 0
                 sum_nb_errors += 0 if correct else 1
                 if nb_to_log > 0:
-                    result_stack = [self.id2token[i.item()] for i in one_result[i:j + 1]]
-                    target_stack = [self.id2token[i.item()] for i in one_input[i:j + 1]]
+                    result_stack = [self.id2token[i.item()] for i in one_result[i : j + 1]]
+                    target_stack = [self.id2token[i.item()] for i in one_input[i : j + 1]]
                     comment = "*" if correct else "-"
                     result_stack = " ".join([str(x) for x in result_stack])
                     target_stack = " ".join([str(x) for x in target_stack])
@@ -1087,7 +1091,8 @@ class RPL(Task):
 
         if not self.no_prog:
             test_nb_total, test_nb_errors = compute_nb_errors_prog(
-                self.test_input[:1000].to(self.device), nb_to_log=10)
+                self.test_input[:1000].to(self.device), nb_to_log=10
+            )
 
             logger(
                 f"accuracy_prog_test {n_epoch} nb_total {test_nb_total} nb_errors {test_nb_errors} accuracy {100.0*(1-test_nb_errors/test_nb_total):.02f}%"
@@ -1096,7 +1101,8 @@ class RPL(Task):
             logger(f"main_test_accuracy {n_epoch} {1-test_nb_errors/test_nb_total}")
 
         test_nb_total, test_nb_errors = compute_nb_errors_output(
-            self.test_input[:1000].to(self.device), nb_to_log=10)
+            self.test_input[:1000].to(self.device), nb_to_log=10
+        )
 
         logger(
             f"accuracy_output_test {n_epoch} nb_total {test_nb_total} nb_errors {test_nb_errors} accuracy {100.0*(1-test_nb_errors/test_nb_total):.02f}%"
@@ -1105,8 +1111,8 @@ class RPL(Task):
         if save_attention_image is None:
             logger("no save_attention_image (is pycairo installed?)")
         else:
-            ns = torch.randint(self.test_input.size(0), (1, )).item()
-            input = self.test_input[ns:ns + 1].clone()
+            ns = torch.randint(self.test_input.size(0), (1,)).item()
+            input = self.test_input[ns : ns + 1].clone()
             last = (input != self.t_nul).max(0).values.nonzero().max() + 3
             input = input[:, :last].to(self.device)
 
@@ -1141,13 +1147,13 @@ class RPL(Task):
 
 
 class Expr(Task):
-
     def tensorize(self, sequences):
         len_max = max([len(x) for x in sequences])
         return torch.cat(
             [
-                torch.tensor([[self.char2id[c] for c in s + "#" * (len_max - len(s))]
-                              for s in sequences])
+                torch.tensor(
+                    [[self.char2id[c] for c in s + "#" * (len_max - len(s))] for s in sequences]
+                )
             ],
             0,
         ).to(self.device)
@@ -1224,7 +1230,6 @@ class Expr(Task):
         deterministic_synthesis,
         input_file=None,
     ):
-
         def compute_nb_correct(input):
             result = input.clone()
             s = (result == self.space).long()
@@ -1409,9 +1414,9 @@ class Grid(Task):
     def batches(self, split="train"):
         assert split in {"train", "test"}
         input = self.train_input if split == "train" else self.test_input
-        for batch in tqdm.tqdm(input.split(self.batch_size),
-                               dynamic_ncols=True,
-                               desc=f"epoch-{split}"):
+        for batch in tqdm.tqdm(
+            input.split(self.batch_size), dynamic_ncols=True, desc=f"epoch-{split}"
+        ):
             yield self.trim(batch)
 
     def vocabulary_size(self):
@@ -1456,7 +1461,7 @@ class Grid(Task):
             else:
                 for k in range(10):
                     ns = k  # torch.randint(self.test_input.size(0), (1,)).item()
-                    input = self.test_input[ns:ns + 1].clone()
+                    input = self.test_input[ns : ns + 1].clone()
                     with torch.autograd.no_grad():
                         t = model.training
                         model.eval()
@@ -1542,9 +1547,9 @@ class QMLP(Task):
     def batches(self, split="train"):
         assert split in {"train", "test"}
         input = self.train_input if split == "train" else self.test_input
-        for batch in tqdm.tqdm(input.split(self.batch_size),
-                               dynamic_ncols=True,
-                               desc=f"epoch-{split}"):
+        for batch in tqdm.tqdm(
+            input.split(self.batch_size), dynamic_ncols=True, desc=f"epoch-{split}"
+        ):
             yield batch
 
     def vocabulary_size(self):
@@ -1569,7 +1574,7 @@ class QMLP(Task):
         )
 
         # q_train_set = result[:, :self.nb_samples_per_mlp * 3]
-        q_params = result[:, self.nb_samples_per_mlp * 3 + 1:]
+        q_params = result[:, self.nb_samples_per_mlp * 3 + 1 :]
         error_test = qmlp.evaluate_q_params(q_params, self.test_q_test_set)
 
         filename = os.path.join(result_dir, f"test_errors_{n_epoch:04d}.dat")

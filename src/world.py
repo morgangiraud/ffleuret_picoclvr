@@ -30,8 +30,11 @@ class Box:
 
     def collision(self, scene):
         for c in scene:
-            if (self is not c and max(self.x, c.x) <= min(self.x + self.w, c.x + c.w)
-                    and max(self.y, c.y) <= min(self.y + self.h, c.y + c.h)):
+            if (
+                self is not c
+                and max(self.x, c.x) <= min(self.x + self.w, c.x + c.w)
+                and max(self.y, c.y) <= min(self.y + self.h, c.y + c.h)
+            ):
                 return True
         return False
 
@@ -40,7 +43,6 @@ class Box:
 
 
 class Normalizer(nn.Module):
-
     def __init__(self, mu, std):
         super().__init__()
         self.register_buffer("mu", mu)
@@ -51,7 +53,6 @@ class Normalizer(nn.Module):
 
 
 class SignSTE(nn.Module):
-
     def __init__(self):
         super().__init__()
 
@@ -67,7 +68,6 @@ class SignSTE(nn.Module):
 
 
 class DiscreteSampler2d(nn.Module):
-
     def __init__(self):
         super().__init__()
 
@@ -105,22 +105,28 @@ def train_encoder(
     mu, std = train_input.float().mean(), train_input.float().std()
 
     def encoder_core(depth, dim):
-        l = [[
-            nn.Conv2d(dim * 2**k, dim * 2**k, kernel_size=5, stride=1, padding=2),
-            nn.ReLU(),
-            nn.Conv2d(dim * 2**k, dim * 2**(k + 1), kernel_size=2, stride=2),
-            nn.ReLU(),
-        ] for k in range(depth)]
+        l = [
+            [
+                nn.Conv2d(dim * 2**k, dim * 2**k, kernel_size=5, stride=1, padding=2),
+                nn.ReLU(),
+                nn.Conv2d(dim * 2**k, dim * 2 ** (k + 1), kernel_size=2, stride=2),
+                nn.ReLU(),
+            ]
+            for k in range(depth)
+        ]
 
         return nn.Sequential(*[x for m in l for x in m])
 
     def decoder_core(depth, dim):
-        l = [[
-            nn.ConvTranspose2d(dim * 2**(k + 1), dim * 2**k, kernel_size=2, stride=2),
-            nn.ReLU(),
-            nn.ConvTranspose2d(dim * 2**k, dim * 2**k, kernel_size=5, stride=1, padding=2),
-            nn.ReLU(),
-        ] for k in range(depth - 1, -1, -1)]
+        l = [
+            [
+                nn.ConvTranspose2d(dim * 2 ** (k + 1), dim * 2**k, kernel_size=2, stride=2),
+                nn.ReLU(),
+                nn.ConvTranspose2d(dim * 2**k, dim * 2**k, kernel_size=5, stride=1, padding=2),
+                nn.ReLU(),
+            ]
+            for k in range(depth - 1, -1, -1)
+        ]
 
         return nn.Sequential(*[x for m in l for x in m])
 
@@ -236,8 +242,12 @@ def scene2tensor(xh, yh, scene, size):
     ctx.fill()
 
     return (
-        pixel_map[None, :, :, :3].flip(-1).permute(0, 3, 1, 2).long().mul(Box.nb_rgb_levels
-                                                                          ).floor_divide(256)
+        pixel_map[None, :, :, :3]
+        .flip(-1)
+        .permute(0, 3, 1, 2)
+        .long()
+        .mul(Box.nb_rgb_levels)
+        .floor_divide(256)
     )
 
 
@@ -258,7 +268,7 @@ def random_scene(nb_insert_attempts=3):
     for k in range(nb_insert_attempts):
         wh = torch.rand(2) * 0.2 + 0.2
         xy = torch.rand(2) * (1 - wh)
-        c = colors[torch.randint(len(colors), (1, ))]
+        c = colors[torch.randint(len(colors), (1,))]
         b = Box(xy[0].item(), xy[1].item(), wh[0].item(), wh[1].item(), c[0], c[1], c[2])
         if not b.collision(scene):
             scene.append(b)
@@ -286,7 +296,7 @@ def generate_episode(steps, size=64):
         scene = random_scene()
         xh, yh = tuple(x.item() for x in torch.rand(2))
 
-        actions = torch.randint(len(effects), (len(steps), ))
+        actions = torch.randint(len(effects), (len(steps),))
         nb_changes = 0
 
         for s, a in zip(steps, actions):
@@ -301,8 +311,13 @@ def generate_episode(steps, size=64):
                         x, y = b.x, b.y
                         b.x += dx
                         b.y += dy
-                        if (b.x < 0 or b.y < 0 or b.x + b.w > 1 or b.y + b.h > 1
-                                or b.collision(scene)):
+                        if (
+                            b.x < 0
+                            or b.y < 0
+                            or b.x + b.w > 1
+                            or b.y + b.h > 1
+                            or b.collision(scene)
+                        ):
                             b.x, b.y = x, y
                         else:
                             xh += dx
@@ -375,7 +390,7 @@ def create_data_and_processors(
     decoder.train(False)
 
     z = encoder(train_input[:1].to(device))
-    pow2 = (2**torch.arange(z.size(1), device=device))[None, None, :]
+    pow2 = (2 ** torch.arange(z.size(1), device=device))[None, None, :]
     z_h, z_w = z.size(2), z.size(3)
 
     logger(f"vqae input {train_input[0].size()} output {z[0].size()}")
@@ -403,8 +418,9 @@ def create_data_and_processors(
             zd_bool = (seq[:, :, None] // p) % 2
             zd_bool = zd_bool.reshape(zd_bool.size(0), z_h, z_w, -1).permute(0, 3, 1, 2)
             logits = decoder(zd_bool * 2.0 - 1.0)
-            logits = logits.reshape(logits.size(0), -1, 3, logits.size(2),
-                                    logits.size(3)).permute(0, 2, 3, 4, 1)
+            logits = logits.reshape(logits.size(0), -1, 3, logits.size(2), logits.size(3)).permute(
+                0, 2, 3, 4, 1
+            )
             output = torch.distributions.categorical.Categorical(logits=logits / T).sample()
 
             frames.append(output)

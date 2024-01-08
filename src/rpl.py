@@ -54,15 +54,15 @@ rpl_ops = ["add", "min", "max", "swp", "rep", "dup", "del"]
 
 
 def generate(nb_starting_values=3, nb_result_values_max=None, max_input=9, prog_len=6, nb_runs=5):
-    prog_len = (1 + torch.randint(2 * prog_len, (1, ))).clamp(max=prog_len).item()
+    prog_len = (1 + torch.randint(2 * prog_len, (1,))).clamp(max=prog_len).item()
 
     while True:
         no_empty_stack = True
-        prog = [rpl_ops[k] for k in torch.randint(len(rpl_ops), (prog_len, ))]
+        prog = [rpl_ops[k] for k in torch.randint(len(rpl_ops), (prog_len,))]
 
         result = []
         for _ in range(nb_runs):
-            stack = [x.item() for x in torch.randint(max_input + 1, (nb_starting_values, ))]
+            stack = [x.item() for x in torch.randint(max_input + 1, (nb_starting_values,))]
             result_stack = rpl_exec(prog, stack)
             if len(result_stack) == 0:
                 no_empty_stack = False
@@ -71,8 +71,9 @@ def generate(nb_starting_values=3, nb_result_values_max=None, max_input=9, prog_
         result = result + ["<prg>"] + prog
         result = result + ["<end>"]
 
-        if no_empty_stack and (nb_result_values_max is None
-                               or len(result_stack) <= nb_result_values_max):
+        if no_empty_stack and (
+            nb_result_values_max is None or len(result_stack) <= nb_result_values_max
+        ):
             break
 
     return result
@@ -101,7 +102,7 @@ def decompose(seq):
         if e is None:
             raise ValueError("Missing input/output markers (should be correct in the prompt)")
         try:
-            io.append(([int(x) for x in seq[k + 1:o]], [int(x) for x in seq[o + 1:e]]))
+            io.append(([int(x) for x in seq[k + 1 : o]], [int(x) for x in seq[o + 1 : e]]))
         except ValueError:
             raise ValueError("Invalid input/output value (should be correct in the prompt)")
 
@@ -112,7 +113,7 @@ def decompose(seq):
         if e is None:
             prog = []
         else:
-            prog = seq[k + 1:e]
+            prog = seq[k + 1 : e]
     else:
         raise ValueError("Missing <prg> (it should be in the prompt)")
 
@@ -120,9 +121,9 @@ def decompose(seq):
 
 
 def stack_distance(target_stack, result_stack):
-    return abs(len(result_stack) - len(target_stack)) + sum([
-        0 if x == y else 1 for x, y in zip(result_stack, target_stack)
-    ])
+    return abs(len(result_stack) - len(target_stack)) + sum(
+        [0 if x == y else 1 for x, y in zip(result_stack, target_stack)]
+    )
 
 
 def compute_nb_errors(seq):

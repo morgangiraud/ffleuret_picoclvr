@@ -83,7 +83,7 @@ def save_attention_image(
         y -= layer_gap
 
     for d in range(0, len(attention_matrices) + 1):
-        n = (attention_matrices[0].size(-1) if d == 0 else attention_matrices[d - 1].size(-2))
+        n = attention_matrices[0].size(-1) if d == 0 else attention_matrices[d - 1].size(-2)
         for n in range(n):
             xc, yc = n * token_gap, -d * layer_gap
             ctx.set_source_rgb(1.0, 1.0, 1.0)

@@ -27,7 +27,7 @@ endif
 update_env:
 ifeq (True,$(HAS_CONDA))
 	@echo ">>> Detected conda, exporting conda environment."
-	conda env update --name picoclvr --file environment_$(OS).yml
+	conda env update --name picoclvr --file environment_$(OS).yml --prune
 	@echo ">>> Conda env exported."
 else
 	@echo ">>> Please install conda first: brew cask install anaconda"
@@ -55,26 +55,24 @@ docs: ## generate Sphinx HTML documentation, including API docs
 ##
 # CI
 ###
-yapf:
-	yapf --style tox.ini -i *.py
-
 lint:
-	flake8 .
+	ruff check src
+
+lint-fix:
+	ruff check src --fix
+
+lint-fix-unsafe:
+	ruff check src --fix --unsafe-fixes
+
+format:
+	ruff format src
 
 typecheck:
-	mypy $(CURRENT_DIR)/.
+	mypy $(CURRENT_DIR)/src
 
 test:
-	pytest --disable-pytest-warnings tests
+	pytest --disable-pytest-warnings src
 
 ci: lint typecheck test
 
 .PHONY: typecheck yapf lint test ci
-
-###
-# Deploy
-###
-zip:
-	python setup.py sdist --format zip
-
-.PHONY: zip
