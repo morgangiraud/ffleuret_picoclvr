@@ -380,7 +380,9 @@ def picoclvr_pruner_horizontal_green(p):
     return not ("green" in p and ("left" in p or "right" in p))
 
 
-picoclvr_pruner_train = (picoclvr_pruner_horizontal_green if args.picocvlr_prune_properties in {"train+eval"} else None)
+picoclvr_pruner_train = (
+    picoclvr_pruner_horizontal_green if args.picocvlr_prune_properties in {"train+eval"} else None
+)
 
 picoclvr_pruner_eval = ((lambda p: not picoclvr_pruner_horizontal_green(p))
                         if args.picocvlr_prune_properties in {"train+eval", "eval"} else None)
@@ -440,7 +442,9 @@ elif args.task == "memory":
 
 elif args.task == "mixing":
     task = tasks.SandBox(
-        problem=problems.ProblemMixing(hard=args.mixing_hard, random_start=not args.mixing_deterministic_start),
+        problem=problems.ProblemMixing(
+            hard=args.mixing_hard, random_start=not args.mixing_deterministic_start
+        ),
         nb_train_samples=args.nb_train_samples,
         nb_test_samples=args.nb_test_samples,
         batch_size=args.batch_size,
@@ -672,8 +676,9 @@ if args.max_percents_of_test_in_train >= 0:
         f"data_check {nb_in_train*100/nb_test:.02f}% ({nb_in_train}/{nb_test}) of test samples are in the train set"
     )
 
-    assert (nb_in_train <= args.max_percents_of_test_in_train * nb_test
-            / 100), f"More than {args.max_percents_of_test_in_train}% of test samples are in the train set"
+    assert (
+        nb_in_train <= args.max_percents_of_test_in_train * nb_test / 100
+    ), f"More than {args.max_percents_of_test_in_train}% of test samples are in the train set"
 
 ##############################
 
@@ -683,7 +688,11 @@ if args.learning_rate_schedule == "cos":
         u = n_epoch / args.nb_epochs * math.pi
         learning_rate_schedule[n_epoch] = args.learning_rate * 0.5 * (1 + math.cos(u))
 else:
-    u = {int(k): float(v) for k, v in [tuple(x.split(":")) for x in args.learning_rate_schedule.split(",")]}
+    u = {
+        int(k): float(v)
+        for k,
+        v in [tuple(x.split(":")) for x in args.learning_rate_schedule.split(",")]
+    }
 
     learning_rate_schedule = {}
     learning_rate = args.learning_rate

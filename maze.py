@@ -82,16 +82,12 @@ def create_maze(h=11, w=17, nb_walls=8):
         r = torch.rand(max_try)  # [max_try, p(vertical) + 3 coords]
 
         is_vert = (r > 0.5).unsqueeze(1).repeat(1, 3)
-        vert = torch.concat((
-            torch.randint(0, h, (max_try, 2)), 
-            torch.randint(0, w, (max_try, 1))
-        ), dim=1)
-        horiz = torch.concat((
-            torch.randint(0, w, (max_try, 2)), 
-            torch.randint(0, h, (max_try, 1))
-        ), dim=1)
+        vert = torch.concat((torch.randint(0, h, (max_try, 2)), torch.randint(0, w, (max_try, 1))),
+                            dim=1)
+        horiz = torch.concat((torch.randint(0, w, (max_try, 2)), torch.randint(0, h, (max_try, 1))),
+                             dim=1)
         possible_walls = torch.where(is_vert, vert, horiz)
-        
+
         possible_walls = possible_walls - possible_walls % 2
         starts = torch.minimum(possible_walls[:, 0], possible_walls[:, 1])
         ends = torch.maximum(possible_walls[:, 0], possible_walls[:, 1])
@@ -201,7 +197,8 @@ def mark_path(walls, i, j, goal_i, goal_j, policy):
 
 
 def path_optimality(ref_paths, paths):
-    return (ref_paths == v_path).long().flatten(1).sum(1) == (paths == v_path).long().flatten(1).sum(1)
+    return (ref_paths == v_path).long().flatten(1).sum(1) == (paths == v_path
+                                                              ).long().flatten(1).sum(1)
 
 
 def path_correctness(mazes, paths):
@@ -212,9 +209,11 @@ def path_correctness(mazes, paths):
     while not pred_current.equal(current):
         pred_current.copy_(current)
         u = (current == v_start).long()
-        possible_next = (u[:, 2:, 1:-1] + u[:, 0:-2, 1:-1] + u[:, 1:-1, 2:] + u[:, 1:-1, 0:-2] > 0).long()
+        possible_next = (u[:, 2:, 1:-1] + u[:, 0:-2, 1:-1] + u[:, 1:-1, 2:] + u[:, 1:-1, 0:-2]
+                         > 0).long()
         u = u[:, 1:-1, 1:-1]
-        reached += ((goal[:, 1:-1, 1:-1] * possible_next).sum((1, 2)) == 1) * ((current == v_path).sum((1, 2)) == 0)
+        reached += ((goal[:, 1:-1, 1:-1] * possible_next).sum((1, 2))
+                    == 1) * ((current == v_path).sum((1, 2)) == 0)
         current[:, 1:-1, 1:-1] = (1 - u) * current[:, 1:-1, 1:-1] + (v_start - v_path) * (
             possible_next * (current[:, 1:-1, 1:-1] == v_path)
         )
@@ -283,14 +282,18 @@ def save_image(
     if target_paths is not None:
         target_paths = target_paths.cpu()
 
-        c_target_paths = (colors[target_paths.reshape(-1)].reshape(target_paths.size() + (-1, )).permute(0, 3, 1, 2))
+        c_target_paths = (
+            colors[target_paths.reshape(-1)].reshape(target_paths.size()
+                                                     + (-1, )).permute(0, 3, 1, 2)
+        )
 
         imgs = torch.cat((imgs, c_target_paths.unsqueeze(1)), 1)
 
     if predicted_paths is not None:
         predicted_paths = predicted_paths.cpu()
         c_predicted_paths = (
-            colors[predicted_paths.reshape(-1)].reshape(predicted_paths.size() + (-1, )).permute(0, 3, 1, 2)
+            colors[predicted_paths.reshape(-1)].reshape(predicted_paths.size()
+                                                        + (-1, )).permute(0, 3, 1, 2)
         )
         imgs = torch.cat((imgs, c_predicted_paths.unsqueeze(1)), 1)
 
@@ -299,7 +302,9 @@ def save_image(
     # NxKxCxHxW
     if path_optimal is not None:
         path_optimal = path_optimal.cpu().long().view(-1, 1, 1, 1)
-        img = (img * (1 - path_optimal) + torch.tensor([0, 255, 0]).view(1, -1, 1, 1) * path_optimal)
+        img = (
+            img * (1 - path_optimal) + torch.tensor([0, 255, 0]).view(1, -1, 1, 1) * path_optimal
+        )
 
     if path_correct is not None:
         path_correct = path_correct.cpu().long().view(-1, 1, 1, 1)

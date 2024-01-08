@@ -71,7 +71,8 @@ def generate(nb_starting_values=3, nb_result_values_max=None, max_input=9, prog_
         result = result + ["<prg>"] + prog
         result = result + ["<end>"]
 
-        if no_empty_stack and (nb_result_values_max is None or len(result_stack) <= nb_result_values_max):
+        if no_empty_stack and (nb_result_values_max is None
+                               or len(result_stack) <= nb_result_values_max):
             break
 
     return result
@@ -119,8 +120,9 @@ def decompose(seq):
 
 
 def stack_distance(target_stack, result_stack):
-    return abs(len(result_stack)
-               - len(target_stack)) + sum([0 if x == y else 1 for x, y in zip(result_stack, target_stack)])
+    return abs(len(result_stack) - len(target_stack)) + sum([
+        0 if x == y else 1 for x, y in zip(result_stack, target_stack)
+    ])
 
 
 def compute_nb_errors(seq):

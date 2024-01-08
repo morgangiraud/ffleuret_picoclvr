@@ -1,9 +1,9 @@
 
 import pathlib
-abs_path = pathlib.Path(__file__).parent.resolve()
-
 import timeit
 import matplotlib.pyplot as plt
+
+abs_path = pathlib.Path(__file__).parent.resolve()
 
 number_of_executions = 2000
 height, width = 11, 17
@@ -21,15 +21,15 @@ from maze import create_maze_old, create_maze
     t0 = timeit.Timer(
         'create_maze_old(height, width, nb_walls)',
         setup=setup_code,
-        globals={'height': height, 'width':width, 'nb_walls':nb_walls}
+        globals={'height': height, 'width': width, 'nb_walls': nb_walls}
     )
-    
+
     t1 = timeit.Timer(
         'create_maze(height, width, nb_walls)',
         setup=setup_code,
-        globals={'height': height, 'width':width, 'nb_walls':nb_walls}
+        globals={'height': height, 'width': width, 'nb_walls': nb_walls}
     )
-    
+
     ms0 = t0.timeit(number_of_executions) / number_of_executions * 1e3
     times_create_maze_old.append(ms0)
     print(f"        create_maze_old:     {ms0} ms")
@@ -68,15 +68,15 @@ from maze import create_maze_old, create_maze
     t0 = timeit.Timer(
         'create_maze_old(height, width, nb_walls)',
         setup=setup_code,
-        globals={'height': height, 'width':width, 'nb_walls':nb_walls}
+        globals={'height': height, 'width': width, 'nb_walls': nb_walls}
     )
-    
+
     t1 = timeit.Timer(
         'create_maze(height, width, nb_walls)',
         setup=setup_code,
-        globals={'height': height, 'width':width, 'nb_walls':nb_walls}
+        globals={'height': height, 'width': width, 'nb_walls': nb_walls}
     )
-    
+
     ms0 = t0.timeit(number_of_executions) / number_of_executions * 1e3
     times_create_maze_old.append(ms0)
     print(f"        create_maze_old:     {ms0} ms")

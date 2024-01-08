@@ -24,7 +24,8 @@ nb_quantization_levels = 101
 
 
 def quantize(x, xmin, xmax):
-    return (((x - xmin) / (xmax - xmin) * nb_quantization_levels).long().clamp(min=0, max=nb_quantization_levels - 1))
+    return (((x - xmin) / (xmax - xmin)
+             * nb_quantization_levels).long().clamp(min=0, max=nb_quantization_levels - 1))
 
 
 def dequantize(q, xmin, xmax):
@@ -92,7 +93,8 @@ def generate_sets_and_params(
         yf = (((xf[:, None, :, 0] >= rec_support[:xf.size(0), :, None, 0]).long() *
                (xf[:, None, :, 0] <= rec_support[:xf.size(0), :, None, 1]).long() *
                (xf[:, None, :, 1] >= rec_support[:xf.size(0), :, None, 2]).long() *
-               (xf[:, None, :, 1] <= rec_support[:xf.size(0), :, None, 3]).long()).max(dim=1).values)
+               (xf[:, None, :, 1] <= rec_support[:xf.size(0), :, None, 3]).long()).max(dim=1
+                                                                                       ).values)
 
         full_input, full_targets = xf, yf
 
@@ -128,7 +130,8 @@ def generate_sets_and_params(
         acc_train_loss = 0.0
         nb_train_errors = 0
 
-        for input, targets in zip(train_input.split(batch_size, dim=1), train_targets.split(batch_size, dim=1)):
+        for input, targets in zip(train_input.split(batch_size, dim=1),
+                                  train_targets.split(batch_size, dim=1)):
             h = torch.einsum("mij,mnj->mni", w1, input) + b1[:, None, :]
             h = F.relu(h)
             output = torch.einsum("mij,mnj->mni", w2, h) + b2[:, None, :]
@@ -155,7 +158,8 @@ def generate_sets_and_params(
     acc_test_loss = 0
     nb_test_errors = 0
 
-    for input, targets in zip(test_input.split(batch_size, dim=1), test_targets.split(batch_size, dim=1)):
+    for input, targets in zip(test_input.split(batch_size, dim=1),
+                              test_targets.split(batch_size, dim=1)):
         h = torch.einsum("mij,mnj->mni", w1, input) + b1[:, None, :]
         h = F.relu(h)
         output = torch.einsum("mij,mnj->mni", w2, h) + b2[:, None, :]
@@ -166,8 +170,10 @@ def generate_sets_and_params(
         nb_test_errors += (wta != targets).long().sum(-1)
 
     test_error = nb_test_errors / test_input.size(1)
-    q_params = torch.cat([quantize(p.view(batch_nb_mlps, -1), -2, 2) for p in [w1, b1, w2, b2]], dim=1)
-    q_train_set = torch.cat([q_train_input, train_targets[:, :, None]], -1).reshape(batch_nb_mlps, -1)
+    q_params = torch.cat([quantize(p.view(batch_nb_mlps, -1), -2, 2) for p in [w1, b1, w2, b2]],
+                         dim=1)
+    q_train_set = torch.cat([q_train_input, train_targets[:, :, None]],
+                            -1).reshape(batch_nb_mlps, -1)
     q_test_set = torch.cat([q_test_input, test_targets[:, :, None]], -1).reshape(batch_nb_mlps, -1)
 
     return q_train_set, q_test_set, q_params, test_error
@@ -201,7 +207,8 @@ def evaluate_q_params(
             k = 0
             for p in [w1, b1, w2, b2]:
                 print(f"{p.size()=}")
-                x = dequantize(batch_q_params[:, k:k + p.numel() // batch_nb_mlps], -2, 2).view(p.size())
+                x = dequantize(batch_q_params[:, k:k + p.numel() // batch_nb_mlps], -2,
+                               2).view(p.size())
                 p.copy_(x)
                 k += p.numel() // batch_nb_mlps
 
@@ -217,7 +224,8 @@ def evaluate_q_params(
         acc_loss = 0.0
         nb_errors = 0
 
-        for input, targets in zip(data_input.split(batch_size, dim=1), data_targets.split(batch_size, dim=1)):
+        for input, targets in zip(data_input.split(batch_size, dim=1),
+                                  data_targets.split(batch_size, dim=1)):
             h = torch.einsum("mij,mnj->mni", w1, input) + b1[:, None, :]
             h = F.relu(h)
             output = torch.einsum("mij,mnj->mni", w2, h) + b2[:, None, :]

@@ -185,7 +185,8 @@ class GridFactory:
         union = true + false
         questions = [union[k] for k in torch.randperm(len(union))[:self.nb_questions]]
 
-        result = " ".join(["<obj> " + x for x in self.grid_positions(start_scene)] + transformations + questions)
+        result = " ".join(["<obj> " + x
+                           for x in self.grid_positions(start_scene)] + transformations + questions)
 
         return start_scene, scene, result
 
