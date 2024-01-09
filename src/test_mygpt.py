@@ -1,6 +1,8 @@
 import torch
+import numpy as np
 
 import mygpt
+from utils import seed_everything
 
 
 def test_sanity():
@@ -70,3 +72,33 @@ def test_cache_wrapper():
 
     cached_bs = cache(bs)
     assert (x[:, 1:3] + 1).sum() == cached_bs.x.sum()
+
+
+def test_qkv_attention():
+    B = 3
+    S = 4
+    D = 5
+    Q = 6
+    V = 7
+    x = torch.rand(B, S, D)
+
+    seed = 42
+
+    with torch.no_grad():
+        bs = mygpt.BracketedSequence(x)
+
+        seed_everything(seed)
+        att = mygpt.QKVAttention(D, Q, V, 1, False, 0.0)
+
+        seed_everything(seed)
+        att_fast = mygpt.QKVAttentionFast(D, Q, V, 1, False, 0.0)
+
+        np.testing.assert_equal(att.w_q.numpy(), att_fast.w_q.numpy())
+        np.testing.assert_equal(att.w_k.numpy(), att_fast.w_k.numpy())
+        np.testing.assert_equal(att.w_v.numpy(), att_fast.w_v.numpy())
+        np.testing.assert_equal(att.w_o.numpy(), att_fast.w_o.numpy())
+
+        bs_y = att(bs)
+        bs_y_fast = att_fast(bs)
+
+        np.testing.assert_almost_equal(bs_y.x.numpy(), bs_y_fast.x.numpy(), decimal=5)

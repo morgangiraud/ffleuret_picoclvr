@@ -14,6 +14,7 @@ v_empty, v_wall, v_start, v_goal, v_path = 0, 1, 2, 3, 4
 
 
 def create_maze_old(h=11, w=17, nb_walls=8):
+    """Deprecated"""
     assert h % 2 == 1 and w % 2 == 1
 
     a, k = 0, 0
@@ -210,7 +211,9 @@ def path_correctness(mazes, paths):
         possible_next = (u[:, 2:, 1:-1] + u[:, 0:-2, 1:-1] + u[:, 1:-1, 2:] + u[:, 1:-1, 0:-2] > 0).long()
         u = u[:, 1:-1, 1:-1]
         reached += ((goal[:, 1:-1, 1:-1] * possible_next).sum((1, 2)) == 1) * ((current == v_path).sum((1, 2)) == 0)
-        current[:, 1:-1, 1:-1] = (1 - u) * current[:, 1:-1, 1:-1] + (v_start - v_path) * (possible_next * (current[:, 1:-1, 1:-1] == v_path))
+        current[:, 1:-1, 1:-1] = (1 - u) * current[:, 1:-1, 1:-1] + (v_start - v_path) * (
+            possible_next * (current[:, 1:-1, 1:-1] == v_path)
+        )
         still_ok *= (current == v_start).sum((1, 2)) <= 1
 
     return still_ok * reached
@@ -284,7 +287,9 @@ def save_image(
 
     if predicted_paths is not None:
         predicted_paths = predicted_paths.cpu()
-        c_predicted_paths = colors[predicted_paths.reshape(-1)].reshape(predicted_paths.size() + (-1,)).permute(0, 3, 1, 2)
+        c_predicted_paths = (
+            colors[predicted_paths.reshape(-1)].reshape(predicted_paths.size() + (-1,)).permute(0, 3, 1, 2)
+        )
         imgs = torch.cat((imgs, c_predicted_paths.unsqueeze(1)), 1)
 
     img = torch.tensor([255, 255, 0]).view(1, -1, 1, 1)

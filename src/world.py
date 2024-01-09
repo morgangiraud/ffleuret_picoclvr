@@ -30,7 +30,11 @@ class Box:
 
     def collision(self, scene):
         for c in scene:
-            if self is not c and max(self.x, c.x) <= min(self.x + self.w, c.x + c.w) and max(self.y, c.y) <= min(self.y + self.h, c.y + c.h):
+            if (
+                self is not c
+                and max(self.x, c.x) <= min(self.x + self.w, c.x + c.w)
+                and max(self.y, c.y) <= min(self.y + self.h, c.y + c.h)
+            ):
                 return True
         return False
 
