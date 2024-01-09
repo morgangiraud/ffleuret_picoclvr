@@ -69,7 +69,12 @@ class ProblemDegradation(Problem):
                 for k in range(len(states) - 1):
                     d = states[k + 1] - states[k]
                     j = d.sort(descending=False).indices[0]
-                    if d[j] == 0 or d[j] > self.value_max // 4 or d[(j + 1) % e.size(0)] <= 0 or d[(j + 1) % e.size(0)] >= -d[j]:
+                    if (
+                        d[j] == 0
+                        or d[j] > self.value_max // 4
+                        or d[(j + 1) % e.size(0)] <= 0
+                        or d[(j + 1) % e.size(0)] >= -d[j]
+                    ):
                         nb_errors += 1
                     else:
                         e.zero_()
@@ -386,7 +391,12 @@ class ProblemMixing(Problem):
     def seq2str(self, seq):
         return " | ".join(
             [
-                " ".join(["-".join([f"{x:02d}" if x < self.height * self.width else "**" for x in s]) for s in r.split(self.width)])
+                " ".join(
+                    [
+                        "-".join([f"{x:02d}" if x < self.height * self.width else "**" for x in s])
+                        for s in r.split(self.width)
+                    ]
+                )
                 for r in seq.split(self.height * self.width)
             ]
         )

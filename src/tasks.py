@@ -176,11 +176,15 @@ class SandBox(Task):
 
         train_nb_total, train_nb_correct = compute_accuracy(self.train_input, self.train_ar_mask)
 
-        logger(f"accuracy_train {n_epoch} nb_total {train_nb_total} nb_correct {train_nb_correct} accuracy {(100.0*train_nb_correct)/train_nb_total:.02f}%")
+        logger(
+            f"accuracy_train {n_epoch} nb_total {train_nb_total} nb_correct {train_nb_correct} accuracy {(100.0*train_nb_correct)/train_nb_total:.02f}%"  # noqa
+        )
 
         test_nb_total, test_nb_correct = compute_accuracy(self.test_input, self.test_ar_mask, logger)
 
-        logger(f"accuracy_test {n_epoch} nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%")
+        logger(
+            f"accuracy_test {n_epoch} nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%"  # noqa
+        )
 
         logger(f"main_test_accuracy {n_epoch} {test_nb_correct/test_nb_total}")
 
@@ -355,7 +359,9 @@ class PicoCLVR(Task):
 
         prefix = "" if pruner is None else "pruned_"
         logger(f"nb_{prefix}samples {n_epoch} {acc_nb_results}")
-        logger(f"property_{prefix}nb {n_epoch} requested {sum(acc_nb_requested_properties)} missing {sum(acc_nb_missing_properties)}")
+        logger(
+            f"property_{prefix}nb {n_epoch} requested {sum(acc_nb_requested_properties)} missing {sum(acc_nb_missing_properties)}"  # noqa
+        )
         logger(f"property_{prefix}miss {n_epoch} {100*nb_missing_properties/nb_requested_properties:.02f}%")
 
         logger(f"main_test_accuracy {n_epoch} {1-nb_missing_properties/nb_requested_properties}")
@@ -376,7 +382,7 @@ class PicoCLVR(Task):
         for primer_descr in [
             "red above green <sep> green top <sep> blue right of red",
             "there is red <sep> there is yellow <sep> there is blue",
-            "red below yellow <sep> yellow below green <sep> green below blue <sep> red right <sep> yellow left <sep> green right <sep> blue left",
+            "red below yellow <sep> yellow below green <sep> green below blue <sep> red right <sep> yellow left <sep> green right <sep> blue left",  # noqa
             "green bottom <sep> yellow bottom <sep> green left of blue <sep> yellow right of blue <sep> blue top",
         ]:
             primer += [primer_descr + " <img>"] * nb_per_primer
@@ -405,7 +411,9 @@ class PicoCLVR(Task):
 
         prefix = "demo_"
         logger(f"nb_{prefix}samples {n_epoch} {acc_nb_results}")
-        logger(f"property_{prefix}nb {n_epoch} requested {sum(acc_nb_requested_properties)} missing {sum(acc_nb_missing_properties)}")
+        logger(
+            f"property_{prefix}nb {n_epoch} requested {sum(acc_nb_requested_properties)} missing {sum(acc_nb_missing_properties)}"  # noqa
+        )
         logger(f"property_{prefix}miss {n_epoch} {100*nb_missing_properties/nb_requested_properties:.02f}%")
 
         img = picoclvr.descr2img(result_descr, height=self.height, width=self.width)
@@ -583,7 +591,9 @@ class Maze(Task):
             nb_to_use=1000,
             deterministic_synthesis=deterministic_synthesis,
         )
-        logger(f"accuracy_train {n_epoch} nb_total {train_nb_total} nb_correct {train_nb_correct} accuracy {(100.0*train_nb_correct)/train_nb_total:.02f}%")
+        logger(
+            f"accuracy_train {n_epoch} nb_total {train_nb_total} nb_correct {train_nb_correct} accuracy {(100.0*train_nb_correct)/train_nb_total:.02f}%"  # noqa
+        )
 
         test_nb_total, test_nb_correct, count = self.compute_error(
             model,
@@ -591,7 +601,9 @@ class Maze(Task):
             nb_to_use=1000,
             deterministic_synthesis=deterministic_synthesis,
         )
-        logger(f"accuracy_test {n_epoch} nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%")
+        logger(
+            f"accuracy_test {n_epoch} nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%"  # noqa
+        )
 
         logger(f"main_test_accuracy {n_epoch} {test_nb_correct/test_nb_total}")
 
@@ -715,7 +727,9 @@ class Snake(Task):
 
         test_nb_total, test_nb_correct = compute_nb_correct(self.test_input[:1000], self.test_prior_visits[:1000])
 
-        logger(f"accuracy_test {n_epoch} nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%")
+        logger(
+            f"accuracy_test {n_epoch} nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%"  # noqa
+        )
 
         logger(f"main_test_accuracy {n_epoch} {test_nb_correct/test_nb_total}")
 
@@ -815,7 +829,9 @@ class Stack(Task):
 
         test_nb_total, test_nb_correct = compute_nb_correct(self.test_input[:1000])
 
-        logger(f"accuracy_test {n_epoch} nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%")
+        logger(
+            f"accuracy_test {n_epoch} nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%"  # noqa
+        )
 
         logger(f"main_test_accuracy {n_epoch} {test_nb_correct/test_nb_total}")
 
@@ -921,10 +937,14 @@ class RPL(Task):
             # Excise the program from every train and test example
             k = torch.arange(self.train_input.size(1), device=self.train_input.device)[None, :]
             p = ((self.train_input == self.t_prog).long() * k).max(1, keepdim=True).values
-            self.train_input = self.train_input * (k <= p).long() + self.t_end * (k == p + 1).long() + self.t_nul * (k > p + 1).long()
+            self.train_input = (
+                self.train_input * (k <= p).long() + self.t_end * (k == p + 1).long() + self.t_nul * (k > p + 1).long()
+            )
             k = torch.arange(self.test_input.size(1), device=self.test_input.device)[None, :]
             p = ((self.test_input == self.t_prog).long() * k).max(1, keepdim=True).values
-            self.test_input = self.test_input * (k <= p).long() + self.t_end * (k == p + 1).long() + self.t_nul * (k > p + 1).long()
+            self.test_input = (
+                self.test_input * (k <= p).long() + self.t_end * (k == p + 1).long() + self.t_nul * (k > p + 1).long()
+            )
 
         if logger is not None:
             logger(f"value_max {val_max}")
@@ -1031,13 +1051,17 @@ class RPL(Task):
         if not self.no_prog:
             test_nb_total, test_nb_errors = compute_nb_errors_prog(self.test_input[:1000].to(self.device), nb_to_log=10)
 
-            logger(f"accuracy_prog_test {n_epoch} nb_total {test_nb_total} nb_errors {test_nb_errors} accuracy {100.0*(1-test_nb_errors/test_nb_total):.02f}%")
+            logger(
+                f"accuracy_prog_test {n_epoch} nb_total {test_nb_total} nb_errors {test_nb_errors} accuracy {100.0*(1-test_nb_errors/test_nb_total):.02f}%"  # noqa
+            )
 
             logger(f"main_test_accuracy {n_epoch} {1-test_nb_errors/test_nb_total}")
 
         test_nb_total, test_nb_errors = compute_nb_errors_output(self.test_input[:1000].to(self.device), nb_to_log=10)
 
-        logger(f"accuracy_output_test {n_epoch} nb_total {test_nb_total} nb_errors {test_nb_errors} accuracy {100.0*(1-test_nb_errors/test_nb_total):.02f}%")
+        logger(
+            f"accuracy_output_test {n_epoch} nb_total {test_nb_total} nb_errors {test_nb_errors} accuracy {100.0*(1-test_nb_errors/test_nb_total):.02f}%"  # noqa
+        )
 
         if save_attention_image is None:
             logger("no save_attention_image (is pycairo installed?)")
@@ -1211,7 +1235,9 @@ class Expr(Task):
             test_nb_missed,
         ) = compute_nb_correct(self.test_input[:10000])
 
-        logger(f"accuracy_test {n_epoch} nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%")
+        logger(
+            f"accuracy_test {n_epoch} nb_total {test_nb_total} nb_correct {test_nb_correct} accuracy {(100.0*test_nb_correct)/test_nb_total:.02f}%"  # noqa
+        )
 
         logger(f"main_test_accuracy {n_epoch} {test_nb_correct/test_nb_total}")
 

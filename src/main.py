@@ -382,7 +382,11 @@ def picoclvr_pruner_horizontal_green(p):
 
 picoclvr_pruner_train = picoclvr_pruner_horizontal_green if args.picocvlr_prune_properties in {"train+eval"} else None
 
-picoclvr_pruner_eval = (lambda p: not picoclvr_pruner_horizontal_green(p)) if args.picocvlr_prune_properties in {"train+eval", "eval"} else None
+picoclvr_pruner_eval = (
+    (lambda p: not picoclvr_pruner_horizontal_green(p))
+    if args.picocvlr_prune_properties in {"train+eval", "eval"}
+    else None
+)
 
 ######################################################################
 
@@ -668,7 +672,9 @@ if args.max_percents_of_test_in_train >= 0:
         nb_in_train += len(in_train)
         nb_test += len(test_subset)
 
-    log_string(f"data_check {nb_in_train*100/nb_test:.02f}% ({nb_in_train}/{nb_test}) of test samples are in the train set")
+    log_string(
+        f"data_check {nb_in_train*100/nb_test:.02f}% ({nb_in_train}/{nb_test}) of test samples are in the train set"
+    )
 
     assert (
         nb_in_train <= args.max_percents_of_test_in_train * nb_test / 100
@@ -755,7 +761,9 @@ for n_epoch in range(nb_epochs_finished, nb_epochs):
         train_perplexity = math.exp(min(100, acc_train_loss / nb_train_samples))
         test_perplexity = math.exp(min(100, acc_test_loss / nb_test_samples))
 
-        log_string(f"perplexity {n_epoch} train_set {train_set_perplexity} train_prediction {train_perplexity} test_prediction {test_perplexity}")
+        log_string(
+            f"perplexity {n_epoch} train_set {train_set_perplexity} train_prediction {train_perplexity} test_prediction {test_perplexity}"  # noqa
+        )
 
         task.produce_results(
             n_epoch=n_epoch,

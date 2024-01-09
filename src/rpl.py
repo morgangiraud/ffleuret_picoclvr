@@ -119,7 +119,9 @@ def decompose(seq):
 
 
 def stack_distance(target_stack, result_stack):
-    return abs(len(result_stack) - len(target_stack)) + sum([0 if x == y else 1 for x, y in zip(result_stack, target_stack)])
+    return abs(len(result_stack) - len(target_stack)) + sum(
+        [0 if x == y else 1 for x, y in zip(result_stack, target_stack)]
+    )
 
 
 def compute_nb_errors(seq):
