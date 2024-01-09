@@ -227,7 +227,11 @@ def generate(
         # picks at most max_nb_properties at random
 
         nb_properties = torch.randint(max_nb_properties, (1,)) + 1
-        s = " <sep> ".join([s[k] for k in torch.randperm(len(s))[:nb_properties]]) + " <img> " + " ".join([f"{color_id2name[n.item()]}" for n in img])
+        s = (
+            " <sep> ".join([s[k] for k in torch.randperm(len(s))[:nb_properties]])
+            + " <img> "
+            + " ".join([f"{color_id2name[n.item()]}" for n in img])
+        )
 
         descr += [s]
 
