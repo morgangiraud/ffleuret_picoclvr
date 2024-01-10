@@ -39,7 +39,9 @@ def generate_sequences(nb, nb_steps, nb_stacks, nb_digits, values=None, device=t
         stack_counts[k[op == 1], st[op == 1]] -= 1
         result[:, (1 + nb_digits) * t] = st * 2 + op
         for d in range(nb_digits):
-            result[:, (1 + nb_digits) * t + 1 + d] = ((op * val_pop + (1 - op) * val_push) // (10**d)) % 10 + 2 * nb_stacks
+            result[:, (1 + nb_digits) * t + 1 + d] = (
+                (op * val_pop + (1 - op) * val_push) // (10**d)
+            ) % 10 + 2 * nb_stacks
 
     return result.to(device), recorded_stack_counts.to(device)
 

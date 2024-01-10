@@ -56,16 +56,16 @@ docs: ## generate Sphinx HTML documentation, including API docs
 # CI
 ###
 lint:
-	ruff check src
+	ruff check src perf
 
 lint-fix:
-	ruff check src --fix
+	ruff check src perf --fix
 
 lint-fix-unsafe:
-	ruff check src --fix --unsafe-fixes
+	ruff check src perf --fix --unsafe-fixes
 
 format:
-	ruff format src
+	ruff format src perf
 
 typecheck:
 	mypy $(CURRENT_DIR)/src

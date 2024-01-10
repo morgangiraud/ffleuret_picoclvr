@@ -2,7 +2,7 @@
 
 [tool.ruff]
 # Set the maximum line length to 79.
-line-length = 160
+line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F"]
